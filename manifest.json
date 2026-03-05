@@ -1,0 +1,39 @@
+{
+  "name": "ShiftDesk Admin",
+  "short_name": "ShiftDesk",
+  "description": "WooCommerce Admin Panel — produse, comenzi, notificari",
+  "start_url": "./shiftdesk-admin.html",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0a0a0f",
+  "theme_color": "#0a0a0f",
+  "lang": "ro",
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Comenzi",
+      "url": "./shiftdesk-admin.html#orders",
+      "description": "Vezi toate comenzile"
+    },
+    {
+      "name": "Produse",
+      "url": "./shiftdesk-admin.html#products",
+      "description": "Gestioneaza produsele"
+    }
+  ]
+}
