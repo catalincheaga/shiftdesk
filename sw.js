@@ -1,4 +1,4 @@
-const CACHE = 'shiftdesk-v3';
+const CACHE = 'shiftdesk-v4';
 const SHELL = [
   './shiftdesk-admin.html',
   './manifest.json',
