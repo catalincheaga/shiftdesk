@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  /* ─── LOCK SCREEN ─── */
+  /* ─── IMPORT SCREEN ─── */
   #lockscreen {
     position: fixed; inset: 0; z-index: 9999;
     background: #f2f2f7;
@@ -52,42 +52,34 @@
   .lock-title { font-size: 20px; font-weight: 800; color: #1d1d1f; letter-spacing: -0.3px; margin-bottom: 6px; }
   .lock-sub   { font-size: 13px; color: #86868b; margin-bottom: 24px; line-height: 1.5; }
 
-  .lock-section-title {
-    font-size: 11px; font-weight: 600; color: #86868b;
-    text-transform: uppercase; letter-spacing: 0.5px;
-    margin: 20px 0 10px;
-  }
-  .lock-section-title:first-of-type { margin-top: 0; }
-
-  .lock-input {
-    width: 100%; padding: 10px 14px;
-    background: #f2f2f7; border: 1px solid rgba(0,0,0,0.09);
-    border-radius: 10px; font-size: 15px;
-    font-family: 'Inter', sans-serif;
-    color: #1d1d1f; outline: none;
-    transition: border-color 0.15s, box-shadow 0.15s;
-    margin-bottom: 10px;
-  }
-  .lock-input:focus {
-    border-color: #0071e3;
-    box-shadow: 0 0 0 3px rgba(0,113,227,0.15);
-    background: #fff;
-  }
-  .lock-input::placeholder { color: #aeaeb2; }
-  .lock-input:last-of-type { margin-bottom: 0; }
-
   .lock-btn {
     width: 100%; padding: 12px;
     background: #0071e3; color: #fff;
     border: none; border-radius: 980px;
     font-size: 15px; font-weight: 600;
     font-family: 'Inter', sans-serif;
-    cursor: pointer; margin-top: 20px;
+    cursor: pointer; margin-top: 8px;
     transition: opacity 0.12s, transform 0.1s;
   }
   .lock-btn:hover   { opacity: 0.88; }
   .lock-btn:active  { transform: scale(0.98); }
-  .lock-btn:disabled{ opacity: 0.4; cursor: not-allowed; }
+
+  .lock-upload-area {
+    border: 2px dashed #d1d1d6;
+    border-radius: 14px;
+    padding: 32px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+    margin-bottom: 16px;
+  }
+  .lock-upload-area:hover, .lock-upload-area.drag-over {
+    border-color: #0071e3;
+    background: rgba(0,113,227,0.04);
+  }
+  .lock-upload-icon { font-size: 32px; margin-bottom: 10px; }
+  .lock-upload-label { font-size: 15px; font-weight: 600; color: #1d1d1f; margin-bottom: 4px; }
+  .lock-upload-sub   { font-size: 12px; color: #86868b; }
 
   .lock-error {
     color: #ff3b30; font-size: 13px;
@@ -95,29 +87,21 @@
     font-weight: 500; min-height: 18px;
   }
 
-  .lock-reset {
-    display: block; text-align: center;
-    margin-top: 16px; font-size: 12px;
-    color: #86868b; cursor: pointer;
-    text-decoration: underline;
-    background: none; border: none;
-    font-family: 'Inter', sans-serif;
+  .lock-note {
+    font-size: 12px; color: #86868b;
+    line-height: 1.6; margin-top: 20px;
+    padding-top: 16px; border-top: 1px solid #f2f2f7;
   }
-  .lock-reset:hover { color: #ff3b30; }
-
-  .lock-card.shake {
-    animation: shake 0.4s ease;
-  }
-  @keyframes shake {
-    0%,100% { transform: translateX(0); }
-    20%,60% { transform: translateX(-8px); }
-    40%,80% { transform: translateX(8px); }
+  .lock-note code {
+    background: #f2f2f7; padding: 1px 5px;
+    border-radius: 4px; font-size: 11px;
+    font-family: 'SF Mono', 'Menlo', monospace;
+    color: #3a3a3c;
   }
 
   @media (max-width: 480px) {
     .lock-card { padding: 28px 20px; border-radius: 16px; }
     .lock-title { font-size: 18px; }
-    .lock-input { font-size: 16px; } /* previne zoom iOS */
   }
 
   /* ─── IMAGE GALLERY ─── */
@@ -1103,9 +1087,9 @@
 </head>
 <body>
 
-<!-- LOCK SCREEN -->
+<!-- IMPORT SCREEN -->
 <div id="lockscreen">
-  <div class="lock-card" id="lockCard">
+  <div class="lock-card">
     <div class="lock-logo">
       <div class="lock-logo-icon">S</div>
       <div>
@@ -1114,40 +1098,25 @@
       </div>
     </div>
 
-    <!-- VIEW: LOGIN (parola deja setata) -->
-    <div id="viewLogin" style="display:none">
-      <div class="lock-title">Bine ai revenit</div>
-      <div class="lock-sub">Introdu parola pentru a accesa panoul de administrare.</div>
-      <div class="lock-section-title">Autentificare</div>
-      <input class="lock-input" type="text" id="loginUsername" autocomplete="username"
-        style="display:none" aria-hidden="true" tabindex="-1">
-      <input class="lock-input" type="password" id="loginPassword" placeholder="Parola"
-        autocomplete="current-password" onkeydown="if(event.key==='Enter') doLogin()">
-      <button class="lock-btn" onclick="doLogin()">Intra</button>
-      <div class="lock-error" id="loginError"></div>
-      <button class="lock-reset" onclick="confirmReset()">Reseteaza aplicatia (sterge toate datele)</button>
+    <div class="lock-title">Importa credentialele</div>
+    <div class="lock-sub">Selecteaza fisierul <strong>shiftdesk-credentials.json</strong> salvat pe dispozitiv. Datele se salveaza local si nu parasesc niciodata dispozitivul tau.</div>
+
+    <div class="lock-upload-area" id="uploadArea" onclick="document.getElementById('credFile').click()"
+      ondragover="event.preventDefault();this.classList.add('drag-over')"
+      ondragleave="this.classList.remove('drag-over')"
+      ondrop="handleCredDrop(event)">
+      <div class="lock-upload-icon">&#128196;</div>
+      <div class="lock-upload-label">Alege fisierul JSON</div>
+      <div class="lock-upload-sub">sau trage si plaseaza aici</div>
     </div>
+    <input type="file" id="credFile" accept=".json,.txt" style="display:none" onchange="handleCredFile(this)">
 
-    <!-- VIEW: SETUP (prima deschidere) -->
-    <div id="viewSetup" style="display:none">
-      <div class="lock-title">Configureaza ShiftDesk</div>
-      <div class="lock-sub">Prima deschidere. Seteaza o parola si introdu credentialele WooCommerce. Acestea se salveaza doar pe dispozitivul tau.</div>
+    <div class="lock-error" id="importError"></div>
 
-      <div class="lock-section-title">Creeaza cont</div>
-      <input class="lock-input" type="text" id="setupUsername" placeholder="Username (ex: admin)"
-        autocomplete="username" oninput="checkSetupForm()">
-      <input class="lock-input" type="password" id="setupPassword" placeholder="Parola noua"
-        autocomplete="new-password" oninput="checkSetupForm()">
-      <input class="lock-input" type="password" id="setupPassword2" placeholder="Confirma parola"
-        autocomplete="new-password" oninput="checkSetupForm()">
-
-      <div class="lock-section-title">Credentiale WooCommerce</div>
-      <input class="lock-input" type="url" id="setupUrl" placeholder="https://magazin.ro" oninput="checkSetupForm()">
-      <input class="lock-input" type="text" id="setupCk" placeholder="Consumer Key (ck_...)" autocomplete="off" oninput="checkSetupForm()">
-      <input class="lock-input" type="password" id="setupCs" placeholder="Consumer Secret (cs_...)" autocomplete="off" oninput="checkSetupForm()">
-
-      <button class="lock-btn" id="setupBtn" onclick="doSetup()" disabled>Salveaza si continua</button>
-      <div class="lock-error" id="setupError"></div>
+    <div class="lock-note">
+      Fisierul trebuie sa contina:<br>
+      <code>url</code>, <code>ck</code>, <code>cs</code> (obligatoriu)<br>
+      <code>workerUrl</code> (optional, pentru push notifications)
     </div>
   </div>
 </div>
@@ -1397,6 +1366,27 @@
             <p style="font-size:12px;color:var(--muted);margin-top:8px">Chrome desktop: butonul de instalare apare in bara de adrese. iOS Safari: Share &rarr; Add to Home Screen.</p>
           </div>
 
+          <hr class="divider">
+
+          <div class="settings-section">
+            <h3>Credentiale</h3>
+            <div class="notif-row">
+              <div>
+                <div class="notif-row-label">Re-importa fisier credentiale</div>
+                <div class="notif-row-sub">Inlocuieste credentialele curente cu un fisier nou</div>
+              </div>
+              <button class="toggle-btn" onclick="document.getElementById('reImportFile').click()">Importa</button>
+            </div>
+            <input type="file" id="reImportFile" accept=".json,.txt" style="display:none" onchange="handleReImport(this)">
+            <div class="notif-row" style="margin-top:10px">
+              <div>
+                <div class="notif-row-label" style="color:#ff3b30">Reseteaza aplicatia</div>
+                <div class="notif-row-sub">Sterge credentialele si reporneste de la zero</div>
+              </div>
+              <button class="toggle-btn" style="background:#ff3b30;color:#fff;border-color:#ff3b30" onclick="confirmReset()">Reseteaza</button>
+            </div>
+          </div>
+
         </div>
       </div>
 
@@ -1431,61 +1421,75 @@
 // ============================
 // LOCK SCREEN
 // ============================
-const SALT = 'shiftdesk-v1-salt';
-
-async function hashPassword(pw) {
-  const data = new TextEncoder().encode(pw + SALT);
-  const buf  = await crypto.subtle.digest('SHA-256', data);
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
-}
-
-function checkSetupForm() {
-  const user = document.getElementById('setupUsername').value.trim();
-  const pw   = document.getElementById('setupPassword').value;
-  const pw2  = document.getElementById('setupPassword2').value;
-  const url  = document.getElementById('setupUrl').value.trim();
-  const ck   = document.getElementById('setupCk').value.trim();
-  const cs   = document.getElementById('setupCs').value.trim();
-  const ok   = user.length >= 2 && pw.length >= 4 && pw === pw2 && url && ck && cs;
-  document.getElementById('setupBtn').disabled = !ok;
-}
-
-async function doSetup() {
-  const user = document.getElementById('setupUsername').value.trim();
-  const pw   = document.getElementById('setupPassword').value;
-  const pw2  = document.getElementById('setupPassword2').value;
-  const url  = document.getElementById('setupUrl').value.trim().replace(/\/$/, '');
-  const ck   = document.getElementById('setupCk').value.trim();
-  const cs   = document.getElementById('setupCs').value.trim();
-
-  if (!user)            { document.getElementById('setupError').textContent = 'Introdu un username.'; return; }
-  if (pw !== pw2)       { document.getElementById('setupError').textContent = 'Parolele nu coincid.'; return; }
-  if (pw.length < 4)    { document.getElementById('setupError').textContent = 'Parola trebuie sa aiba minim 4 caractere.'; return; }
-  if (!url||!ck||!cs)   { document.getElementById('setupError').textContent = 'Completeaza toate campurile WooCommerce.'; return; }
-
-  const hash = await hashPassword(pw);
-  localStorage.setItem('shiftdesk-auth', hash);
-  localStorage.setItem('shiftdesk-user', user);
-  localStorage.setItem('shiftdesk-cfg', JSON.stringify({ url, ck, cs, pollInterval: 30, perPage: 100 }));
-
-  unlockApp();
-}
-
-async function doLogin() {
-  const pw   = document.getElementById('loginPassword').value;
-  const hash = await hashPassword(pw);
-  const stored = localStorage.getItem('shiftdesk-auth');
-
-  if (hash === stored) {
-    unlockApp();
-  } else {
-    document.getElementById('loginError').textContent = 'Parola incorecta.';
-    const card = document.getElementById('lockCard');
-    card.classList.remove('shake');
-    void card.offsetWidth;
-    card.classList.add('shake');
-    document.getElementById('loginPassword').value = '';
+// CREDENTIALS FILE IMPORT
+// ============================
+function applyCredentials(data, silent = false) {
+  const err = document.getElementById('importError');
+  if (!data.url || !data.ck || !data.cs) {
+    if (err) err.textContent = 'Fisierul trebuie sa contina: url, ck, cs.';
+    return false;
   }
+  const existing = JSON.parse(localStorage.getItem('shiftdesk-cfg') || '{}');
+  localStorage.setItem('shiftdesk-cfg', JSON.stringify({
+    url: data.url.replace(/\/$/, ''),
+    ck:  data.ck,
+    cs:  data.cs,
+    pollInterval: data.pollInterval || existing.pollInterval || 30,
+    perPage:      data.perPage      || existing.perPage      || 100,
+  }));
+  if (data.workerUrl) {
+    localStorage.setItem('shiftdesk-worker-url', data.workerUrl.replace(/\/$/, ''));
+  }
+  if (!silent) unlockApp();
+  return true;
+}
+
+function handleCredFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  readCredFile(file);
+}
+
+function handleCredDrop(e) {
+  e.preventDefault();
+  document.getElementById('uploadArea').classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) readCredFile(file);
+}
+
+function readCredFile(file) {
+  const err = document.getElementById('importError');
+  err.textContent = '';
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = JSON.parse(e.target.result);
+      applyCredentials(data);
+    } catch(_) {
+      err.textContent = 'Fisier invalid. Trebuie sa fie JSON valid.';
+    }
+  };
+  reader.readAsText(file);
+}
+
+function handleReImport(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = JSON.parse(e.target.result);
+      const ok = applyCredentials(data, true);
+      if (!ok) { showToast('Eroare', 'Fisierul trebuie sa contina: url, ck, cs.', 'error'); return; }
+      showToast('Importat', 'Credentialele au fost actualizate', 'success');
+      loadSettings();
+      populateSettingsForm();
+    } catch(_) {
+      showToast('Eroare', 'Fisier JSON invalid', 'error');
+    }
+  };
+  reader.readAsText(file);
+  input.value = '';
 }
 
 function unlockApp() {
@@ -1494,28 +1498,22 @@ function unlockApp() {
 }
 
 function confirmReset() {
-  if (confirm('Stergi toate datele salvate (parola + credentiale)? Va trebui sa reconfigurezi aplicatia.')) {
-    localStorage.removeItem('shiftdesk-auth');
+  if (confirm('Stergi credentialele salvate? Va trebui sa reimportezi fisierul.')) {
     localStorage.removeItem('shiftdesk-cfg');
+    localStorage.removeItem('shiftdesk-worker-url');
+    localStorage.removeItem('shiftdesk-push-subscribed');
     location.reload();
   }
 }
 
-function initLockScreen() {
-  const hasAuth = localStorage.getItem('shiftdesk-auth');
-  if (hasAuth) {
-    document.getElementById('viewLogin').style.display = 'block';
-    // Populeaza username-ul ascuns ca iOS Keychain sa asocieze corect credentialele
-    const savedUser = localStorage.getItem('shiftdesk-user') || 'admin';
-    document.getElementById('loginUsername').value = savedUser;
-    setTimeout(() => document.getElementById('loginPassword').focus(), 100);
-  } else {
-    document.getElementById('viewSetup').style.display = 'block';
+// Daca credentialele exista deja → porneste direct, fara nicio intrebare
+(function initAuth() {
+  const saved = JSON.parse(localStorage.getItem('shiftdesk-cfg') || '{}');
+  if (saved.url && saved.ck && saved.cs) {
+    unlockApp();
   }
-}
-
-// Ruleaza imediat
-initLockScreen();
+  // altfel, ramane pe ecranul de import
+})();
 
 // ============================
 // CONFIG & STATE
