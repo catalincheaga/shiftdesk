@@ -1363,6 +1363,7 @@ async function doLogin() {
 
 function unlockApp() {
   document.getElementById('lockscreen').style.display = 'none';
+  initApp();
 }
 
 function confirmReset() {
@@ -1680,6 +1681,12 @@ async function loadProducts() {
     renderProducts();
   } catch(e) {
     showToast('Eroare produse', e.message, 'error');
+    document.getElementById('productsGrid').innerHTML = `
+      <div class="empty" style="grid-column:1/-1">
+        <div class="empty-icon">&#9888;</div>
+        <div class="empty-text" style="color:var(--danger);margin-bottom:8px">${escHtml(e.message)}</div>
+        <button class="edit-btn" onclick="loadProducts()">&#8635;&nbsp; Reincearca</button>
+      </div>`;
   }
 }
 
@@ -2279,16 +2286,15 @@ async function refreshAll() {
 }
 
 // ============================
-// INIT
+// INIT — rulat doar dupa unlock
 // ============================
-(async function init() {
+async function initApp() {
   loadSettings();
   handleHash();
-  await loadOrders();
-  await loadProducts();
-  startPolling();
   updateNotifBtn();
-})();
+  await Promise.all([loadOrders(), loadProducts()]);
+  startPolling();
+}
 </script>
 </body>
 </html>
