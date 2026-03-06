@@ -1029,8 +1029,11 @@
     <div id="viewLogin" style="display:none">
       <div class="lock-title">Bine ai revenit</div>
       <div class="lock-sub">Introdu parola pentru a accesa panoul de administrare.</div>
-      <div class="lock-section-title">Parola</div>
-      <input class="lock-input" type="password" id="loginPassword" placeholder="Parola ta" onkeydown="if(event.key==='Enter') doLogin()">
+      <div class="lock-section-title">Autentificare</div>
+      <input class="lock-input" type="text" id="loginUsername" autocomplete="username"
+        style="display:none" aria-hidden="true" tabindex="-1">
+      <input class="lock-input" type="password" id="loginPassword" placeholder="Parola"
+        autocomplete="current-password" onkeydown="if(event.key==='Enter') doLogin()">
       <button class="lock-btn" onclick="doLogin()">Intra</button>
       <div class="lock-error" id="loginError"></div>
       <button class="lock-reset" onclick="confirmReset()">Reseteaza aplicatia (sterge toate datele)</button>
@@ -1041,9 +1044,13 @@
       <div class="lock-title">Configureaza ShiftDesk</div>
       <div class="lock-sub">Prima deschidere. Seteaza o parola si introdu credentialele WooCommerce. Acestea se salveaza doar pe dispozitivul tau.</div>
 
-      <div class="lock-section-title">Seteaza parola aplicatiei</div>
-      <input class="lock-input" type="password" id="setupPassword" placeholder="Parola noua" oninput="checkSetupForm()">
-      <input class="lock-input" type="password" id="setupPassword2" placeholder="Confirma parola" oninput="checkSetupForm()">
+      <div class="lock-section-title">Creeaza cont</div>
+      <input class="lock-input" type="text" id="setupUsername" placeholder="Username (ex: admin)"
+        autocomplete="username" oninput="checkSetupForm()">
+      <input class="lock-input" type="password" id="setupPassword" placeholder="Parola noua"
+        autocomplete="new-password" oninput="checkSetupForm()">
+      <input class="lock-input" type="password" id="setupPassword2" placeholder="Confirma parola"
+        autocomplete="new-password" oninput="checkSetupForm()">
 
       <div class="lock-section-title">Credentiale WooCommerce</div>
       <input class="lock-input" type="url" id="setupUrl" placeholder="https://magazin.ro" oninput="checkSetupForm()">
@@ -1306,28 +1313,32 @@ async function hashPassword(pw) {
 }
 
 function checkSetupForm() {
-  const pw  = document.getElementById('setupPassword').value;
-  const pw2 = document.getElementById('setupPassword2').value;
-  const url = document.getElementById('setupUrl').value.trim();
-  const ck  = document.getElementById('setupCk').value.trim();
-  const cs  = document.getElementById('setupCs').value.trim();
-  const ok  = pw.length >= 4 && pw === pw2 && url && ck && cs;
+  const user = document.getElementById('setupUsername').value.trim();
+  const pw   = document.getElementById('setupPassword').value;
+  const pw2  = document.getElementById('setupPassword2').value;
+  const url  = document.getElementById('setupUrl').value.trim();
+  const ck   = document.getElementById('setupCk').value.trim();
+  const cs   = document.getElementById('setupCs').value.trim();
+  const ok   = user.length >= 2 && pw.length >= 4 && pw === pw2 && url && ck && cs;
   document.getElementById('setupBtn').disabled = !ok;
 }
 
 async function doSetup() {
-  const pw  = document.getElementById('setupPassword').value;
-  const pw2 = document.getElementById('setupPassword2').value;
-  const url = document.getElementById('setupUrl').value.trim().replace(/\/$/, '');
-  const ck  = document.getElementById('setupCk').value.trim();
-  const cs  = document.getElementById('setupCs').value.trim();
+  const user = document.getElementById('setupUsername').value.trim();
+  const pw   = document.getElementById('setupPassword').value;
+  const pw2  = document.getElementById('setupPassword2').value;
+  const url  = document.getElementById('setupUrl').value.trim().replace(/\/$/, '');
+  const ck   = document.getElementById('setupCk').value.trim();
+  const cs   = document.getElementById('setupCs').value.trim();
 
+  if (!user)            { document.getElementById('setupError').textContent = 'Introdu un username.'; return; }
   if (pw !== pw2)       { document.getElementById('setupError').textContent = 'Parolele nu coincid.'; return; }
   if (pw.length < 4)    { document.getElementById('setupError').textContent = 'Parola trebuie sa aiba minim 4 caractere.'; return; }
   if (!url||!ck||!cs)   { document.getElementById('setupError').textContent = 'Completeaza toate campurile WooCommerce.'; return; }
 
   const hash = await hashPassword(pw);
   localStorage.setItem('shiftdesk-auth', hash);
+  localStorage.setItem('shiftdesk-user', user);
   localStorage.setItem('shiftdesk-cfg', JSON.stringify({ url, ck, cs, pollInterval: 30, perPage: 100 }));
 
   unlockApp();
@@ -1366,6 +1377,9 @@ function initLockScreen() {
   const hasAuth = localStorage.getItem('shiftdesk-auth');
   if (hasAuth) {
     document.getElementById('viewLogin').style.display = 'block';
+    // Populeaza username-ul ascuns ca iOS Keychain sa asocieze corect credentialele
+    const savedUser = localStorage.getItem('shiftdesk-user') || 'admin';
+    document.getElementById('loginUsername').value = savedUser;
     setTimeout(() => document.getElementById('loginPassword').focus(), 100);
   } else {
     document.getElementById('viewSetup').style.display = 'block';
