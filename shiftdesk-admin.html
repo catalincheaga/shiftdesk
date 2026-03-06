@@ -1586,6 +1586,7 @@ function populateSettingsForm() {
   document.getElementById('settingCs').value    = cfg.cs;
   document.getElementById('settingPoll').value  = String(cfg.pollInterval);
   document.getElementById('settingPerPage').value = String(cfg.perPage);
+  WORKER_URL = localStorage.getItem('shiftdesk-worker-url') || '';
   document.getElementById('settingWorkerUrl').value = WORKER_URL;
   updateNotifBtn();
   updatePushStatus();
