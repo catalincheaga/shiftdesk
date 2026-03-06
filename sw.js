@@ -1,18 +1,21 @@
-const CACHE = 'shiftdesk-v2';
+const CACHE = 'shiftdesk-v3';
 const SHELL = [
   './shiftdesk-admin.html',
   './manifest.json',
   './icon.svg',
   './icon-maskable.svg',
-  'https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap'
 ];
 
+// ─── INSTALL ──────────────────────────────────
 self.addEventListener('install', e => {
   e.waitUntil(
-    caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())
+    caches.open(CACHE)
+      .then(c => c.addAll(SHELL))
+      .then(() => self.skipWaiting())
   );
 });
 
+// ─── ACTIVATE ─────────────────────────────────
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys()
@@ -21,13 +24,9 @@ self.addEventListener('activate', e => {
   );
 });
 
+// ─── FETCH (cache-first pentru shell) ─────────
 self.addEventListener('fetch', e => {
-  const url = new URL(e.request.url);
-
-  // Pass through WooCommerce API calls — always network
-  if (url.pathname.includes('/wp-json/')) return;
-
-  // App shell — cache first, fallback network
+  if (new URL(e.request.url).pathname.includes('/wp-json/')) return;
   e.respondWith(
     caches.match(e.request).then(cached => {
       if (cached) return cached;
@@ -42,26 +41,63 @@ self.addEventListener('fetch', e => {
   );
 });
 
-// Push notifications (when server sends push)
+// ─── PUSH — notificare primita de la server ────
 self.addEventListener('push', e => {
-  const data = e.data ? e.data.json() : { title: 'ShiftDesk', body: 'Notificare noua' };
+  let data = { title: 'ShiftDesk', body: 'Notificare noua', tag: 'shiftdesk', url: './shiftdesk-admin.html' };
+
+  try {
+    if (e.data) data = { ...data, ...e.data.json() };
+  } catch(_) {}
+
   e.waitUntil(
     self.registration.showNotification(data.title, {
-      body: data.body,
-      icon: './icon.svg',
-      badge: './icon.svg',
-      tag: data.tag || 'shiftdesk',
-      data: data
+      body:    data.body,
+      icon:    './icon.svg',
+      badge:   './icon.svg',
+      tag:     data.tag || 'shiftdesk',
+      vibrate: [200, 100, 200],
+      data:    { url: data.url || './shiftdesk-admin.html#orders' },
+      actions: [
+        { action: 'open',    title: 'Deschide' },
+        { action: 'dismiss', title: 'Ignora'   },
+      ],
     })
   );
 });
 
+// ─── NOTIFICATION CLICK ───────────────────────
 self.addEventListener('notificationclick', e => {
   e.notification.close();
+  if (e.action === 'dismiss') return;
+
+  const targetUrl = e.notification.data?.url || './shiftdesk-admin.html#orders';
+
   e.waitUntil(
-    clients.matchAll({ type: 'window' }).then(list => {
-      if (list.length) return list[0].focus();
-      return clients.openWindow('./shiftdesk-admin.html');
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      // Daca aplicatia e deja deschisa, activeaz-o
+      for (const client of list) {
+        if (client.url.includes('shiftdesk-admin') && 'focus' in client) {
+          client.navigate(targetUrl);
+          return client.focus();
+        }
+      }
+      // Altfel, deschide o fereastra noua
+      return clients.openWindow(targetUrl);
     })
+  );
+});
+
+// ─── SUBSCRIPTION CHANGE (token reinnoit de browser) ─
+self.addEventListener('pushsubscriptionchange', e => {
+  e.waitUntil(
+    self.registration.pushManager.subscribe(e.oldSubscription.options)
+      .then(sub => {
+        // Trimite noua subscriptie la worker
+        return fetch('WORKER_URL_PLACEHOLDER/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(sub),
+        });
+      })
   );
 });

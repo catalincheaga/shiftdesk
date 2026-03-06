@@ -1370,6 +1370,21 @@
           <hr class="divider">
 
           <div class="settings-section">
+            <h3>Push Notifications (background)</h3>
+            <div class="form-group" style="margin-bottom:12px">
+              <label class="form-label">Cloudflare Worker URL</label>
+              <input class="form-input" id="settingWorkerUrl" type="url" placeholder="https://shiftdesk-push.username.workers.dev" autocomplete="off">
+              <p style="font-size:12px;color:var(--muted);margin-top:4px">Necesar pentru notificari cand aplicatia e inchisa. Lasa gol daca nu folosesti.</p>
+            </div>
+            <div class="notif-row" style="margin-bottom:8px">
+              <div id="pushStatusText" style="font-size:13px;color:var(--muted)">Neabonat.</div>
+              <button class="toggle-btn" id="pushSubscribeBtn" onclick="subscribeToPush()">Aboneaza acest dispozitiv</button>
+            </div>
+          </div>
+
+          <hr class="divider">
+
+          <div class="settings-section">
             <h3>Instalare PWA</h3>
             <div class="notif-row">
               <div>
@@ -1573,7 +1588,9 @@ function populateSettingsForm() {
   document.getElementById('settingCs').value    = cfg.cs;
   document.getElementById('settingPoll').value  = String(cfg.pollInterval);
   document.getElementById('settingPerPage').value = String(cfg.perPage);
+  document.getElementById('settingWorkerUrl').value = WORKER_URL;
   updateNotifBtn();
+  updatePushStatus();
 }
 
 function saveSettings() {
@@ -1583,6 +1600,8 @@ function saveSettings() {
   cfg.pollInterval = parseInt(document.getElementById('settingPoll').value);
   cfg.perPage      = parseInt(document.getElementById('settingPerPage').value);
   localStorage.setItem('shiftdesk-cfg', JSON.stringify(cfg));
+  WORKER_URL = document.getElementById('settingWorkerUrl').value.trim().replace(/\/$/, '');
+  localStorage.setItem('shiftdesk-worker-url', WORKER_URL);
   restartPolling();
   showToast('Salvat', 'Setarile au fost actualizate', 'success');
   setTimeout(() => { loadOrders(); loadProducts(); }, 400);
@@ -1621,22 +1640,75 @@ async function wcFetch(endpoint, options = {}) {
 }
 
 // ============================
-// NOTIFICATIONS
+// PUSH NOTIFICATIONS
 // ============================
+const VAPID_PUBLIC_KEY = 'BK2UDjPGQfRmtY0sc5Tg6sYZWZhngBcdLcU3bBYX611V3eWX-4WS8594i3ZmaI-vTj63nf_tUf-_-VLjdbgjtrg';
+let WORKER_URL = localStorage.getItem('shiftdesk-worker-url') || '';
+
 function updateNotifBtn() {
   const btn = document.getElementById('notifBtn');
   if (!btn) return;
   const p = Notification.permission;
-  if (p === 'granted') { btn.textContent = '\u2713 Activate'; btn.className = 'toggle-btn granted'; }
+  if (p === 'granted') { btn.textContent = '\u2713 Notificari active'; btn.className = 'toggle-btn granted'; }
   else if (p === 'denied') { btn.textContent = 'Blocate (schimba din browser)'; btn.className = 'toggle-btn denied'; }
-  else { btn.textContent = 'Activeaza'; btn.className = 'toggle-btn'; }
+  else { btn.textContent = 'Activeaza notificarile'; btn.className = 'toggle-btn'; }
 }
 
 async function requestNotifPermission() {
   if (!('Notification' in window)) { showToast('Nesupportat', 'Browserul nu suporta notificari', 'error'); return; }
   const r = await Notification.requestPermission();
   updateNotifBtn();
-  if (r === 'granted') showToast('Notificari activate', 'Vei primi notificari pentru comenzi noi', 'success');
+  if (r === 'granted') {
+    showToast('Permisiune acordata', 'Se inregistreaza dispozitivul...', 'success');
+    await subscribeToPush();
+  }
+}
+
+async function subscribeToPush() {
+  if (!WORKER_URL) {
+    showToast('Worker URL lipsa', 'Introdu URL-ul Cloudflare Worker in Setari > Push Notifications', 'warn');
+    return;
+  }
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const existing = await reg.pushManager.getSubscription();
+    if (existing) await existing.unsubscribe();
+
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+    });
+
+    const res = await fetch(`${WORKER_URL}/subscribe`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(sub),
+    });
+
+    if (!res.ok) throw new Error('Server error: ' + res.status);
+    localStorage.setItem('shiftdesk-push-subscribed', '1');
+    showToast('Dispozitiv inregistrat', 'Vei primi notificari chiar si cand aplicatia e inchisa!', 'success');
+    updatePushStatus();
+  } catch(e) {
+    showToast('Eroare push', e.message, 'error');
+  }
+}
+
+function updatePushStatus() {
+  const status = document.getElementById('pushStatusText');
+  const btn    = document.getElementById('pushSubscribeBtn');
+  if (!status || !btn) return;
+  const subscribed = localStorage.getItem('shiftdesk-push-subscribed') === '1';
+  status.textContent = subscribed ? 'Dispozitiv inregistrat — primesti push cand app-ul e inchis.' : 'Neabonat. Introdu Worker URL si apasa Aboneaza.';
+  status.style.color = subscribed ? 'var(--success)' : 'var(--muted)';
+  btn.textContent = subscribed ? 'Re-aboneaza' : 'Aboneaza acest dispozitiv';
+}
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64  = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw     = atob(base64);
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
 }
 
 function showBrowserNotif(title, body, tag = '') {
