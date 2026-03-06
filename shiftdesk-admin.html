@@ -977,38 +977,127 @@
   /* ─── DIVIDER ─── */
   .divider { border:none; border-top:1px solid var(--border); margin:20px 0; }
 
+  /* ─── BOTTOM NAV (mobile) ─── */
+  .bottom-nav {
+    display: none;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-top: 1px solid var(--border);
+    z-index: 40;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .bottom-nav-inner {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    height: 56px;
+  }
+
+  .bottom-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    flex: 1;
+    height: 100%;
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 600;
+    position: relative;
+    transition: color 0.12s;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .bottom-nav-item.active { color: var(--accent); }
+
+  .bottom-nav-icon {
+    font-size: 22px;
+    line-height: 1;
+    transition: transform 0.15s;
+  }
+  .bottom-nav-item.active .bottom-nav-icon { transform: scale(1.1); }
+
+  .bottom-nav-badge {
+    position: absolute;
+    top: 6px; right: calc(50% - 20px);
+    background: var(--danger);
+    color: #fff;
+    font-size: 9px; font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 10px;
+    min-width: 16px; text-align: center;
+    display: none;
+  }
+  .bottom-nav-badge.show { display: block; }
+
   /* ─── RESPONSIVE ─── */
   @media (max-width:1024px) {
     .stats-row { grid-template-columns:1fr 1fr; }
   }
 
   @media (max-width:768px) {
-    .sidebar {
-      position:fixed; left:0; top:0; bottom:0;
-      transform:translateX(-100%);
+    /* Sidebar complet ascuns pe mobile - folosim bottom nav */
+    .sidebar { display: none !important; }
+    .hamburger { display: none !important; }
+    .bottom-nav { display: flex; flex-direction: column; }
+
+    /* Spatiu pentru bottom nav */
+    .content { padding: 14px 14px calc(56px + env(safe-area-inset-bottom, 0px) + 14px); }
+    .topbar { padding: 0 16px; }
+    .last-update { display: none; }
+
+    /* Modals slide-up de jos pe mobile */
+    .modal-overlay { align-items: flex-end; padding: 0; }
+    .modal {
+      border-radius: 20px 20px 0 0;
+      width: 100%; max-width: 100%;
+      max-height: 92vh;
     }
-    .sidebar.mobile-open { transform:translateX(0); }
-    .sidebar-overlay.mobile-open { display:block; }
-    .hamburger { display:flex; }
-    .last-update { display:none; }
-    .content { padding:14px; }
-    .topbar { padding:0 14px; }
-    .form-grid { grid-template-columns:1fr; }
-    .form-group.span-2 { grid-column:1; }
-    .detail-grid { grid-template-columns:1fr; }
-    .settings-grid { grid-template-columns:1fr; }
-    .modal-body { padding:14px 16px; }
-    .modal-head { padding:16px 16px 0; }
-    .modal-footer { padding:12px 16px; }
-    .products-grid { grid-template-columns:1fr 1fr; gap:12px; padding:12px; }
+    @keyframes scaleIn {
+      from { transform: translateY(60px); opacity: 0; }
+      to   { transform: translateY(0);    opacity: 1; }
+    }
+    .modal-head { padding: 16px 18px 0; }
+    .modal-body { padding: 14px 18px; }
+    .modal-footer { padding: 12px 18px; }
+
+    /* Tabele scrollabile orizontal */
+    #ordersTableWrap, #dashRecentOrders { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    table { min-width: 560px; }
+
+    /* Layout forms */
+    .form-grid { grid-template-columns: 1fr; }
+    .form-group.span-2 { grid-column: 1; }
+    .detail-grid { grid-template-columns: 1fr; }
+    .settings-grid { grid-template-columns: 1fr; }
+
+    /* Produse 2 coloane pe tablet */
+    .products-grid { grid-template-columns: 1fr 1fr; gap: 12px; padding: 12px; }
+
+    /* Search full width */
+    .search-input { width: 100%; }
+    .card-header { flex-wrap: wrap; gap: 8px; }
+
+    /* Img gallery 2 coloane */
+    .img-gallery-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
   }
 
-  @media (max-width:520px) {
-    .stats-row { grid-template-columns:1fr 1fr; gap:10px; }
-    .stat-value { font-size:20px; }
-    .products-grid { grid-template-columns:1fr; }
-    .search-input { width:100%; }
-    .card-header { gap:8px; }
+  @media (max-width:480px) {
+    .stats-row { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .stat-card { padding: 14px; }
+    .stat-value { font-size: 20px; }
+    .stat-icon { width: 34px; height: 34px; font-size: 16px; }
+    .products-grid { grid-template-columns: 1fr; }
+    .topbar-title { font-size: 15px; }
+    /* Ascunde textul din topbar-btn, pastreaza iconita */
+    .topbar-btn { padding: 6px 10px; }
   }
 </style>
 </head>
@@ -1300,6 +1389,29 @@
   </main>
 </div>
 
+<!-- BOTTOM NAV — mobile only -->
+<nav class="bottom-nav" id="bottomNav">
+  <div class="bottom-nav-inner">
+    <div class="bottom-nav-item active" data-panel="dashboard" onclick="showPanel('dashboard')">
+      <span class="bottom-nav-icon">&#9632;</span>
+      <span>Dashboard</span>
+    </div>
+    <div class="bottom-nav-item" data-panel="orders" onclick="showPanel('orders')">
+      <span class="bottom-nav-icon">&#128203;</span>
+      <span>Comenzi</span>
+      <span class="bottom-nav-badge" id="mobileOrdersBadge"></span>
+    </div>
+    <div class="bottom-nav-item" data-panel="products" onclick="showPanel('products')">
+      <span class="bottom-nav-icon">&#9711;</span>
+      <span>Produse</span>
+    </div>
+    <div class="bottom-nav-item" data-panel="settings" onclick="showPanel('settings')">
+      <span class="bottom-nav-icon">&#9881;</span>
+      <span>Setari</span>
+    </div>
+  </div>
+</nav>
+
 <script>
 // ============================
 // LOCK SCREEN
@@ -1584,12 +1696,13 @@ function closeSidebar() {
 // ============================
 // NAVIGATION
 // ============================
-function showPanel(name, navEl) {
+function showPanel(name) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById('panel-' + name).classList.add('active');
-  const item = navEl || document.querySelector(`.nav-item[data-panel="${name}"]`);
-  if (item) item.classList.add('active');
+  // Sync sidebar + bottom nav
+  document.querySelectorAll('.nav-item, .bottom-nav-item').forEach(n => {
+    n.classList.toggle('active', n.dataset.panel === name);
+  });
   const titles = { dashboard:'Dashboard', orders:'Comenzi', products:'Produse', settings:'Setari' };
   document.getElementById('pageTitle').textContent = titles[name] || name;
   closeSidebar();
@@ -1599,6 +1712,7 @@ function showPanel(name, navEl) {
 function handleHash() {
   const h = location.hash.replace('#', '');
   if (['orders','products','settings'].includes(h)) showPanel(h);
+  else showPanel('dashboard');
 }
 
 // ============================
@@ -1665,6 +1779,12 @@ async function loadOrders() {
     const badge = document.getElementById('newOrdersBadge');
     badge.textContent = actionable;
     badge.className = 'notif-badge' + (actionable > 0 ? ' show' : '');
+    // Sync bottom nav badge
+    const mobileBadge = document.getElementById('mobileOrdersBadge');
+    if (mobileBadge) {
+      mobileBadge.textContent = actionable;
+      mobileBadge.className = 'bottom-nav-badge' + (actionable > 0 ? ' show' : '');
+    }
   } catch(e) {
     setOnline(false);
     showToast('Eroare comenzi', e.message, 'error');
