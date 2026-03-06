@@ -114,6 +114,109 @@
     40%,80% { transform: translateX(8px); }
   }
 
+  @media (max-width: 480px) {
+    .lock-card { padding: 28px 20px; border-radius: 16px; }
+    .lock-title { font-size: 18px; }
+    .lock-input { font-size: 16px; } /* previne zoom iOS */
+  }
+
+  /* ─── IMAGE GALLERY ─── */
+  .img-gallery-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .img-gallery-count { font-size: 11px; color: var(--muted); }
+
+  .img-gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px;
+  }
+
+  .img-gallery-item {
+    position: relative;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--surface2);
+    display: flex; flex-direction: column;
+  }
+
+  .img-gallery-thumb-wrap {
+    position: relative;
+    aspect-ratio: 1;
+    overflow: hidden;
+    cursor: pointer;
+    background: var(--surface3);
+  }
+
+  .img-gallery-thumb {
+    width: 100%; height: 100%;
+    object-fit: cover; display: block;
+    transition: transform 0.25s;
+  }
+  .img-gallery-thumb-wrap:hover .img-gallery-thumb { transform: scale(1.05); }
+
+  .img-gallery-overlay {
+    position: absolute; inset: 0;
+    background: rgba(0,0,0,0.4);
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; transition: opacity 0.2s;
+    font-size: 20px; color: #fff;
+  }
+  .img-gallery-thumb-wrap:hover .img-gallery-overlay { opacity: 1; }
+
+  .img-gallery-main-badge {
+    position: absolute; bottom: 6px; left: 6px;
+    background: var(--accent); color: #fff;
+    font-size: 9px; font-weight: 700;
+    padding: 2px 6px; border-radius: 4px;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+
+  .img-gallery-remove {
+    position: absolute; top: 5px; right: 5px;
+    width: 22px; height: 22px;
+    background: rgba(255,59,48,0.9); color: #fff;
+    border: none; border-radius: 50%;
+    font-size: 11px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; transition: opacity 0.15s;
+    z-index: 2;
+  }
+  .img-gallery-item:hover .img-gallery-remove { opacity: 1; }
+
+  .img-gallery-fields {
+    padding: 7px 8px; display: flex; flex-direction: column; gap: 5px;
+  }
+
+  .img-gallery-input {
+    width: 100%; padding: 5px 8px;
+    font-size: 11px; font-family: var(--font);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--text); outline: none;
+    transition: border-color 0.15s;
+  }
+  .img-gallery-input:focus { border-color: var(--accent); }
+  .img-gallery-input::placeholder { color: var(--muted2); font-size: 10px; }
+
+  .img-gallery-add {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    aspect-ratio: 1;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    cursor: pointer; color: var(--muted);
+    gap: 6px; font-size: 26px;
+    transition: border-color 0.15s, color 0.15s;
+    background: var(--surface2);
+    min-height: 80px;
+  }
+  .img-gallery-add:hover { border-color: var(--accent); color: var(--accent); }
+  .img-gallery-add small { font-size: 11px; font-weight: 500; }
+
   :root {
     --bg:       #f2f2f7;
     --surface:  #ffffff;
@@ -1290,6 +1393,7 @@ let pollingTimer = null;
 let currentEditProductId = null;
 let currentOrderModalId = null;
 let deferredInstallPrompt = null;
+let editImages = []; // { id, src, name, alt } — imaginile din modalul de editare produs
 
 // ============================
 // PWA
@@ -1373,12 +1477,20 @@ function auth() { return 'Basic ' + btoa(cfg.ck + ':' + cfg.cs); }
 
 async function wcFetch(endpoint, options = {}) {
   const url = `${cfg.url}/wp-json/wc/v3${endpoint}`;
-  const res = await fetch(url, {
-    ...options,
-    headers: { 'Authorization': auth(), 'Content-Type': 'application/json', ...(options.headers||{}) }
-  });
-  if (!res.ok) throw new Error(`API ${res.status}: ${res.statusText}`);
-  return res.json();
+  try {
+    const res = await fetch(url, {
+      ...options,
+      headers: { 'Authorization': auth(), 'Content-Type': 'application/json', ...(options.headers||{}) }
+    });
+    if (!res.ok) throw new Error(`API ${res.status}: ${res.statusText}`);
+    return res.json();
+  } catch(e) {
+    // CORS sau retea offline
+    if (e instanceof TypeError) {
+      throw new Error(`Eroare retea / CORS. Verifica: 1) Esti conectat la internet. 2) Site-ul WooCommerce (${cfg.url}) permite requests de la ${location.origin}. In WordPress: Plugins > WooCommerce > Settings > Advanced sau instaleaza un plugin CORS.`);
+    }
+    throw e;
+  }
 }
 
 // ============================
@@ -1866,19 +1978,23 @@ function openProductEdit(productId) {
   currentEditProductId = productId;
   document.getElementById('productModalSub').textContent = `#${p.id} — ${p.name}`;
 
-  const img = p.images?.[0]?.src || null;
-  const imgEl = img
-    ? `<img class="edit-img-preview" id="editImgPreview" src="${escHtml(img)}" alt="" onclick="triggerEditImgUpload()">`
-    : `<div class="edit-img-placeholder" onclick="triggerEditImgUpload()"><span>+</span><small>Adauga</small></div>`;
+  // Initializeaza editImages din datele produsului
+  editImages = (p.images || []).map(img => ({
+    id:   img.id,
+    src:  img.src,
+    name: img.name || '',
+    alt:  img.alt  || ''
+  }));
 
   document.getElementById('productModalBody').innerHTML = `
-    <div class="edit-img-section">
-      ${imgEl}
-      <input type="file" id="editImgInput" accept="image/*" style="display:none" onchange="uploadEditProductImage(this)">
-      <div class="edit-img-info">
-        <p>Apasa pe imagine pentru a o schimba.<br>Format: JPG, PNG, WebP. Recomandat 800&times;800px.</p>
-        <button onclick="triggerEditImgUpload()">&#128247;&nbsp; Schimba imaginea</button>
+    <div id="imgGallerySection" style="margin-bottom:20px">
+      <div class="img-gallery-header">
+        <span class="form-label">Imagini produs</span>
+        <span class="img-gallery-count" id="imgGalleryCount">${editImages.length} imagine(i)</span>
       </div>
+      <div class="img-gallery-grid" id="imgGalleryGrid"></div>
+      <input type="file" id="editImgInputNew" accept="image/*" multiple style="display:none" onchange="addNewEditImages(this)">
+      <p class="form-hint" style="margin-top:8px">Prima imagine este imaginea principala. Apasa pe imagine pentru a o inlocui. <strong>Alt text</strong> si <strong>titlu</strong> sunt importante pentru SEO.</p>
     </div>
 
     <div class="form-grid">
@@ -1942,7 +2058,100 @@ function openProductEdit(productId) {
       </div>
     </div>`;
 
+  renderEditImages();
   document.getElementById('productModal').classList.add('open');
+}
+
+function renderEditImages() {
+  const grid = document.getElementById('imgGalleryGrid');
+  if (!grid) return;
+  const countEl = document.getElementById('imgGalleryCount');
+  if (countEl) countEl.textContent = `${editImages.length} imagine(i)`;
+
+  grid.innerHTML = editImages.map((img, idx) => `
+    <div class="img-gallery-item">
+      <div class="img-gallery-thumb-wrap" onclick="replaceEditImage(${idx})" title="Click pentru a inlocui imaginea">
+        <img class="img-gallery-thumb" src="${escHtml(img.src)}" alt="${escHtml(img.alt||'')}">
+        <div class="img-gallery-overlay">&#128247;</div>
+        ${idx === 0 ? '<div class="img-gallery-main-badge">Principala</div>' : ''}
+      </div>
+      <button class="img-gallery-remove" onclick="removeEditImage(event,${idx})" title="Sterge imaginea">&#10005;</button>
+      <div class="img-gallery-fields">
+        <input class="img-gallery-input" data-field="alt" data-idx="${idx}"
+          value="${escHtml(img.alt||'')}" placeholder="Alt text SEO...">
+        <input class="img-gallery-input" data-field="name" data-idx="${idx}"
+          value="${escHtml(img.name||'')}" placeholder="Titlu imagine SEO...">
+      </div>
+    </div>`).join('') + `
+    <div class="img-gallery-add" onclick="document.getElementById('editImgInputNew').click()">
+      <span>+</span>
+      <small>Adauga imagine</small>
+    </div>`;
+}
+
+function syncEditImagesFromInputs() {
+  document.querySelectorAll('#imgGalleryGrid [data-field]').forEach(input => {
+    const idx   = parseInt(input.dataset.idx);
+    const field = input.dataset.field;
+    if (editImages[idx] !== undefined) editImages[idx][field] = input.value;
+  });
+}
+
+function removeEditImage(event, idx) {
+  event.stopPropagation();
+  if (editImages.length <= 1) {
+    if (!confirm('Stergi singura imagine? Produsul va ramane fara imagine.')) return;
+  }
+  syncEditImagesFromInputs();
+  editImages.splice(idx, 1);
+  renderEditImages();
+}
+
+async function replaceEditImage(idx) {
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = 'image/*';
+  input.onchange = async e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    showToast('Upload', `Se incarca ${file.name}...`, '');
+    try {
+      const media = await uploadToWordPressMedia(file);
+      syncEditImagesFromInputs();
+      editImages[idx] = { id: media.id, src: media.src, name: media.name, alt: editImages[idx]?.alt || '' };
+      renderEditImages();
+      showToast('Inlocuita', 'Imaginea a fost inlocuita', 'success');
+    } catch(er) { showToast('Eroare', er.message, 'error'); }
+  };
+  input.click();
+}
+
+async function addNewEditImages(inputEl) {
+  const files = Array.from(inputEl.files);
+  if (!files.length) return;
+  syncEditImagesFromInputs();
+  for (const file of files) {
+    showToast('Upload', `Se incarca ${file.name}...`, '');
+    try {
+      const media = await uploadToWordPressMedia(file);
+      editImages.push({ id: media.id, src: media.src, name: media.name, alt: '' });
+      renderEditImages();
+    } catch(er) { showToast('Eroare upload', er.message, 'error'); }
+  }
+  inputEl.value = '';
+}
+
+async function uploadToWordPressMedia(file) {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('title', file.name.replace(/\.[^.]+$/, ''));
+  const res = await fetch(`${cfg.url}/wp-json/wp/v2/media`, {
+    method: 'POST',
+    headers: { 'Authorization': auth() },
+    body: formData
+  });
+  if (!res.ok) throw new Error('Upload esuat: ' + res.statusText);
+  const media = await res.json();
+  return { id: media.id, src: media.source_url, name: media.title?.rendered || file.name };
 }
 
 function closeProductModal() {
@@ -1967,6 +2176,9 @@ async function saveProductFromModal() {
     return;
   }
 
+  // Sincronizeaza alt/name din inputuri inainte de save
+  syncEditImagesFromInputs();
+
   const stockQtyVal = document.getElementById('editStockQty').value;
   const changes = {
     name,
@@ -1978,7 +2190,8 @@ async function saveProductFromModal() {
     status:            document.getElementById('editStatus').value,
     stock_quantity:    stockQtyVal==='' ? null : parseInt(stockQtyVal),
     stock_status:      document.getElementById('editStockStatus').value,
-    manage_stock:      stockQtyVal !== ''
+    manage_stock:      stockQtyVal !== '',
+    images:            editImages.map(img => ({ id: img.id, alt: img.alt || '', name: img.name || '' }))
   };
 
   try {
@@ -2001,65 +2214,38 @@ async function saveProductFromModal() {
 }
 
 // ============================
-// IMAGE UPLOAD
+// IMAGE UPLOAD (card grid)
 // ============================
 function triggerImgUpload(productId) {
   document.getElementById('imgInput-' + productId)?.click();
-}
-function triggerEditImgUpload() {
-  document.getElementById('editImgInput')?.click();
 }
 
 async function uploadProductImage(productId, inputEl) {
   const file = inputEl.files[0];
   if (!file) return;
-  await doImageUpload(productId, file, imgUrl => {
-    const img = document.querySelector(`[data-product-id="${productId}"] .product-card-img`);
-    if (img) { img.src = imgUrl; return; }
-    const wrap = document.querySelector(`[data-product-id="${productId}"] .product-card-img-wrap`);
-    if (wrap) {
-      const el = document.createElement('img');
-      el.className = 'product-card-img'; el.src = imgUrl;
-      wrap.prepend(el);
-      wrap.querySelector('.product-card-img-placeholder')?.remove();
-    }
-  });
-}
-
-async function uploadEditProductImage(inputEl) {
-  const file = inputEl.files[0];
-  if (!file) return;
-  await doImageUpload(currentEditProductId, file, imgUrl => {
-    const preview = document.getElementById('editImgPreview');
-    if (preview) { preview.src = imgUrl; return; }
-    const ph = document.querySelector('.edit-img-placeholder');
-    if (ph) {
-      const img = document.createElement('img');
-      img.id = 'editImgPreview'; img.className = 'edit-img-preview';
-      img.src = imgUrl; img.onclick = () => triggerEditImgUpload();
-      ph.replaceWith(img);
-    }
-  });
-}
-
-async function doImageUpload(productId, file, onSuccess) {
   showToast('Upload', 'Se incarca imaginea...', '');
-  const formData = new FormData();
-  formData.append('file', file);
-  formData.append('title', file.name);
   try {
-    const res = await fetch(`${cfg.url}/wp-json/wp/v2/media`, {
-      method: 'POST',
-      headers: { 'Authorization': auth() },
-      body: formData
-    });
-    if (!res.ok) throw new Error('Upload esuat: ' + res.statusText);
-    const media = await res.json();
-    await wcFetch(`/products/${productId}`, { method:'PUT', body:JSON.stringify({ images:[{ id:media.id }] }) });
+    const media = await uploadToWordPressMedia(file);
+    // Actualizeaza prima imagine din produs si pastreaza restul
     const idx = allProducts.findIndex(p => p.id===productId);
-    if (idx !== -1) allProducts[idx].images = [{ id:media.id, src:media.source_url }];
-    showToast('Imagine incarcata', 'Imaginea produsului a fost actualizata', 'success');
-    if (onSuccess) onSuccess(media.source_url);
+    const existingImages = idx !== -1 ? (allProducts[idx].images || []).map(i => ({ id:i.id, alt:i.alt||'', name:i.name||'' })) : [];
+    existingImages[0] = { id: media.id, src: media.src, name: media.name, alt: '' };
+    await wcFetch(`/products/${productId}`, { method:'PUT', body:JSON.stringify({ images: existingImages }) });
+    if (idx !== -1) allProducts[idx].images[0] = { id: media.id, src: media.src };
+
+    // Actualizeaza imaginea in card
+    const cardImg = document.querySelector(`[data-product-id="${productId}"] .product-card-img`);
+    if (cardImg) { cardImg.src = media.src; }
+    else {
+      const wrap = document.querySelector(`[data-product-id="${productId}"] .product-card-img-wrap`);
+      if (wrap) {
+        const el = document.createElement('img');
+        el.className = 'product-card-img'; el.src = media.src;
+        wrap.prepend(el);
+        wrap.querySelector('.product-card-img-placeholder')?.remove();
+      }
+    }
+    showToast('Imagine incarcata', 'Imaginea principala a fost actualizata', 'success');
   } catch(e) {
     showToast('Eroare upload', e.message, 'error');
   }
