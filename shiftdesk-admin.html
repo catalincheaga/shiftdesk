@@ -2484,6 +2484,11 @@ async function initApp() {
   handleHash();
   updateNotifBtn();
   await Promise.all([loadOrders(), loadProducts()]);
+  // Daca primul load a esuat (offline la pornire), retryez dupa 3s si 8s
+  if (document.getElementById('liveLabel').textContent === 'Offline') {
+    setTimeout(() => Promise.all([loadOrders(), loadProducts()]), 3000);
+    setTimeout(() => Promise.all([loadOrders(), loadProducts()]), 8000);
+  }
   startPolling();
 }
 </script>
