@@ -1217,7 +1217,7 @@
         <span id="liveLabel">Live</span>
       </div>
       <span class="last-update" id="lastUpdate">&#8212;</span>
-      <button class="topbar-btn" onclick="refreshAll()">&#8635;&nbsp; Refresh</button>
+      <button class="topbar-btn" id="refreshBtn" onclick="refreshAll()">&#8635;&nbsp; Refresh</button>
     </div>
 
     <div class="content">
@@ -2480,6 +2480,24 @@ function startPolling() {
 function restartPolling() { startPolling(); }
 
 async function refreshAll() {
+  const btn = document.getElementById('refreshBtn');
+  if (btn && btn.dataset.counting) return;
+
+  // Re-citeste settings din localStorage inainte de refresh (fix 404 la restart)
+  loadSettings();
+
+  if (btn) {
+    btn.dataset.counting = '1';
+    btn.disabled = true;
+    for (let i = 5; i > 0; i--) {
+      btn.textContent = `↻  ${i}...`;
+      await new Promise(r => setTimeout(r, 1000));
+    }
+    btn.textContent = '↻\u00a0 Refresh';
+    btn.disabled = false;
+    delete btn.dataset.counting;
+  }
+
   await Promise.all([loadOrders(), loadProducts()]);
 }
 
