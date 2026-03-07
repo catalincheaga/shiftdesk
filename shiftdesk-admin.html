@@ -1627,7 +1627,8 @@ let deferredInstallPrompt = null;
 let editImages = []; // { id, src, name, alt } — imaginile din modalul de editare produs
 let allCategories = [];
 let allTags = [];
-let _editTagIds = []; // tags currently in the chip input
+let allAttributes = []; // { id, name, terms: [{id, name}] }
+let _editTagIds = [];
 
 // ============================
 // PWA
@@ -2296,6 +2297,52 @@ async function loadCategoriesAndTags() {
   } catch(_) { allCategories = []; allTags = []; }
 }
 
+async function loadGlobalAttributes() {
+  if (allAttributes.length) return;
+  try {
+    const attrs = await wcFetch('/products/attributes?per_page=100');
+    // Incarca termenii pentru fiecare atribut in paralel
+    await Promise.all(attrs.map(async attr => {
+      try {
+        attr.terms = await wcFetch(`/products/attributes/${attr.id}/terms?per_page=100&orderby=name&order=asc`);
+      } catch(_) { attr.terms = []; }
+    }));
+    allAttributes = attrs;
+  } catch(_) { allAttributes = []; }
+}
+
+// Adauga un termen nou la un atribut global in WooCommerce
+async function addAttrTerm(attrId, inputId, listId) {
+  const input = document.getElementById(inputId);
+  const val = input?.value.trim();
+  if (!val) return;
+  const btn = input.nextElementSibling;
+  if (btn) { btn.disabled = true; btn.textContent = '...'; }
+  try {
+    const term = await wcFetch(`/products/attributes/${attrId}/terms`, {
+      method: 'POST',
+      body: JSON.stringify({ name: val }),
+    });
+    // Salveaza local
+    const attr = allAttributes.find(a => a.id === attrId);
+    if (attr) attr.terms.push(term);
+    // Adauga in DOM si bifeaza automat
+    const list = document.getElementById(listId);
+    if (list) {
+      const lbl = document.createElement('label');
+      lbl.className = 'cat-item';
+      lbl.innerHTML = `<input type="checkbox" name="attr_${attrId}" value="${escHtml(term.name)}" checked><span>${escHtml(term.name)}</span>`;
+      list.appendChild(lbl);
+    }
+    input.value = '';
+    showToast('Adaugat', `"${term.name}" a fost adaugat la atribut`, 'success');
+  } catch(e) {
+    showToast('Eroare', e.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '+ Adauga'; }
+  }
+}
+
 function htmlToText(html) {
   if (!html) return '';
   return html
@@ -2382,16 +2429,39 @@ function buildProductModalHTML(p) {
         </label>`).join('')
     : '<div style="color:var(--muted);font-size:13px;padding:8px">Categoriile nu s-au putut incarca.</div>';
 
-  const attrHTML = (p.attributes || []).map(a => `
-    <div class="attr-item">
-      <div class="attr-name">${escHtml(a.name)}</div>
-      <input class="form-input" data-attr-id="${a.id != null ? a.id : ''}" data-attr-name="${escHtml(a.name)}"
-        value="${escHtml((a.options || []).join(', '))}" placeholder="Valori separate prin virgula">
-      <div class="attr-visible-row">
-        <input type="checkbox" data-attr-visible="${a.id != null ? a.id : escHtml(a.name)}" ${a.visible ? 'checked' : ''}>
-        <span>Vizibil pe pagina produsului</span>
-      </div>
-    </div>`).join('') || '<div style="color:var(--muted);font-size:13px;padding:8px">Niciun atribut setat. Poti adauga din WooCommerce &gt; Produse &gt; Atribute.</div>';
+  // Construieste harta: attrId → optiunile bifate pe produsul curent
+  const prodAttrMap = {};
+  (p.attributes || []).forEach(a => {
+    prodAttrMap[a.id] = { options: new Set((a.options || []).map(o => o.toLowerCase())), visible: a.visible };
+  });
+
+  const attrHTML = allAttributes.length
+    ? allAttributes.map(attr => {
+        const sel = prodAttrMap[attr.id] || { options: new Set(), visible: true };
+        const termsHTML = (attr.terms || []).map(t => `
+          <label class="cat-item">
+            <input type="checkbox" name="attr_${attr.id}" value="${escHtml(t.name)}"
+              ${sel.options.has(t.name.toLowerCase()) ? 'checked' : ''}>
+            <span>${escHtml(t.name)}</span>
+          </label>`).join('');
+        return `
+          <div class="attr-item">
+            <div class="attr-name">${escHtml(attr.name)}</div>
+            <div class="cat-list" id="attrTerms_${attr.id}" style="max-height:140px">
+              ${termsHTML || '<div style="color:var(--muted);font-size:12px;padding:6px">Niciun termen. Adauga mai jos.</div>'}
+            </div>
+            <div style="display:flex;gap:6px;margin-top:8px">
+              <input class="form-input" id="newTerm_${attr.id}" placeholder="Termen nou..." style="flex:1"
+                onkeydown="if(event.key==='Enter'){event.preventDefault();addAttrTerm(${attr.id},'newTerm_${attr.id}','attrTerms_${attr.id}')}">
+              <button class="topbar-btn" onclick="addAttrTerm(${attr.id},'newTerm_${attr.id}','attrTerms_${attr.id}')">+ Adauga</button>
+            </div>
+            <div class="attr-visible-row">
+              <input type="checkbox" name="attrVisible_${attr.id}" ${sel.visible !== false ? 'checked' : ''}>
+              <span>Vizibil pe pagina produsului</span>
+            </div>
+          </div>`;
+      }).join('')
+    : '<div style="color:var(--muted);font-size:13px;padding:8px">Nu s-au putut incarca atributele globale WooCommerce.</div>';
 
   const upsellIds   = new Set(p.upsell_ids || []);
   const crossIds    = new Set(p.cross_sell_ids || []);
@@ -2552,9 +2622,9 @@ function buildProductModalHTML(p) {
     <!-- ATRIBUTE -->
     <div class="modal-tab-panel" id="ptab-attrs">
       <div style="padding-bottom:4px">
-        <p class="form-hint" style="margin-bottom:12px">Atributele includ si brand-ul daca este configurat ca atribut in WooCommerce.</p>
+        <p class="form-hint" style="margin-bottom:12px">Bifa termenii pe care ii are acest produs. Termenii adaugati raman in WooCommerce si pot fi folositi si de alte produse.</p>
         ${attrHTML}
-        <p class="form-hint" style="margin-top:4px">Pentru atribute noi, mergi in WordPress &gt; Produse &gt; Atribute.</p>
+        <p class="form-hint" style="margin-top:8px">Pentru a adauga atribute noi (ex: Brand, Culoare), mergi in WordPress &gt; Produse &gt; Atribute.</p>
       </div>
     </div>
 
@@ -2604,7 +2674,7 @@ async function openProductEdit(productId) {
     '<div style="padding:60px;text-align:center"><div class="spinner"></div></div>';
   document.getElementById('productModal').classList.add('open');
 
-  await loadCategoriesAndTags();
+  await Promise.all([loadCategoriesAndTags(), loadGlobalAttributes()]);
 
   editImages = (p.images || []).map(img => ({ id: img.id, src: img.src, name: img.name || '', alt: img.alt || '' }));
   document.getElementById('productModalBody').innerHTML = buildProductModalHTML(p);
@@ -2620,7 +2690,7 @@ async function openNewProductModal() {
     '<div style="padding:60px;text-align:center"><div class="spinner"></div></div>';
   document.getElementById('productModal').classList.add('open');
 
-  await loadCategoriesAndTags();
+  await Promise.all([loadCategoriesAndTags(), loadGlobalAttributes()]);
 
   editImages = [];
   const blank = {
@@ -2788,16 +2858,14 @@ async function saveProductFromModal() {
   const tags = Array.from(document.querySelectorAll('#tagChipsContainer .tag-chip'))
     .map(chip => chip.dataset.tagId ? { id: parseInt(chip.dataset.tagId) } : { name: chip.dataset.tagName });
 
-  // Atribute
-  const attributes = Array.from(document.querySelectorAll('[data-attr-name]')).map(input => {
-    const attrId   = input.dataset.attrId;
-    const attrName = input.dataset.attrName;
-    const options  = input.value.split(',').map(v => v.trim()).filter(Boolean);
-    const visEl    = document.querySelector(`[data-attr-visible="${attrId || attrName}"]`);
-    const obj = { name: attrName, options, visible: visEl ? visEl.checked : true };
-    if (attrId) obj.id = parseInt(attrId);
-    return obj;
-  }).filter(a => a.options.length > 0);
+  // Atribute globale: colecteaza termenii bifati per atribut
+  const attributes = allAttributes.map(attr => {
+    const options = Array.from(document.querySelectorAll(`[name="attr_${attr.id}"]:checked`))
+      .map(cb => cb.value);
+    if (!options.length) return null;
+    const visEl = document.querySelector(`[name="attrVisible_${attr.id}"]`);
+    return { id: attr.id, name: attr.name, options, visible: visEl ? visEl.checked : true };
+  }).filter(Boolean);
 
   // Produse legate
   const upsell_ids    = Array.from(document.querySelectorAll('[name="upsellCheck"]:checked')).map(cb => parseInt(cb.value));
