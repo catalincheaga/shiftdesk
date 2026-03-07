@@ -2479,7 +2479,7 @@ function startPolling() {
 }
 function restartPolling() { startPolling(); }
 
-async function refreshAll() {
+async function refreshAll(seconds = 5) {
   const btn = document.getElementById('refreshBtn');
   if (btn && btn.dataset.counting) return;
 
@@ -2489,7 +2489,7 @@ async function refreshAll() {
   if (btn) {
     btn.dataset.counting = '1';
     btn.disabled = true;
-    for (let i = 5; i > 0; i--) {
+    for (let i = seconds; i > 0; i--) {
       btn.textContent = `↻  ${i}...`;
       await new Promise(r => setTimeout(r, 1000));
     }
@@ -2508,25 +2508,27 @@ async function initApp() {
   loadSettings();
   handleHash();
   updateNotifBtn();
-  await Promise.all([loadOrders(), loadProducts()]);
-  // Daca primul load a esuat (offline la pornire), retryez dupa 3s si 8s
-  if (document.getElementById('liveLabel').textContent === 'Offline') {
-    setTimeout(() => Promise.all([loadOrders(), loadProducts()]), 3000);
-    setTimeout(() => Promise.all([loadOrders(), loadProducts()]), 8000);
-  }
+  // La startup face acelasi lucru ca butonul Refresh (3s countdown + load)
+  await refreshAll(3);
   startPolling();
 }
 
-// Re-citeste credentials cand PWA-ul e restaurat din memorie (iOS back-forward cache / suspend)
-window.addEventListener('pageshow', e => {
-  if (e.persisted) {
-    loadSettings();
+// Re-citeste si reincarca cand PWA-ul revine din background (iOS suspend / swipe back)
+let _lastHidden = 0;
+window.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') {
+    _lastHidden = Date.now();
+  } else if (document.visibilityState === 'visible' && _lastHidden > 0) {
+    const away = Date.now() - _lastHidden;
+    if (away > 10000) {
+      // A stat ascuns mai mult de 10s — re-citeste settings si reincarca date
+      refreshAll(3);
+    }
   }
 });
-window.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') {
-    loadSettings();
-  }
+window.addEventListener('pageshow', e => {
+  // iOS: restaurat din back-forward cache
+  if (e.persisted) refreshAll(3);
 });
 </script>
 </body>
