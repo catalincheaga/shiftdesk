@@ -1581,11 +1581,13 @@ function loadSettings() {
 }
 
 function populateSettingsForm() {
-  document.getElementById('settingUrl').value   = cfg.url;
-  document.getElementById('settingCk').value    = cfg.ck;
-  document.getElementById('settingCs').value    = cfg.cs;
-  document.getElementById('settingPoll').value  = String(cfg.pollInterval);
-  document.getElementById('settingPerPage').value = String(cfg.perPage);
+  // Citeste direct din localStorage la fiecare deschidere (evita starea veche din cfg)
+  const saved = JSON.parse(localStorage.getItem('shiftdesk-cfg') || '{}');
+  document.getElementById('settingUrl').value     = saved.url          || cfg.url;
+  document.getElementById('settingCk').value      = saved.ck           || cfg.ck;
+  document.getElementById('settingCs').value      = saved.cs           || cfg.cs;
+  document.getElementById('settingPoll').value    = String(saved.pollInterval || cfg.pollInterval);
+  document.getElementById('settingPerPage').value = String(saved.perPage      || cfg.perPage);
   WORKER_URL = localStorage.getItem('shiftdesk-worker-url') || '';
   document.getElementById('settingWorkerUrl').value = WORKER_URL;
   updateNotifBtn();
@@ -1593,11 +1595,16 @@ function populateSettingsForm() {
 }
 
 function saveSettings() {
-  cfg.url          = document.getElementById('settingUrl').value.replace(/\/$/, '');
-  cfg.ck           = document.getElementById('settingCk').value.trim();
-  cfg.cs           = document.getElementById('settingCs').value.trim();
-  cfg.pollInterval = parseInt(document.getElementById('settingPoll').value);
-  cfg.perPage      = parseInt(document.getElementById('settingPerPage').value);
+  const existing = JSON.parse(localStorage.getItem('shiftdesk-cfg') || '{}');
+  const newUrl = document.getElementById('settingUrl').value.replace(/\/$/, '');
+  const newCk  = document.getElementById('settingCk').value.trim();
+  const newCs  = document.getElementById('settingCs').value.trim();
+  // Nu suprascrie cu valori goale — pastreaza ce era in localStorage
+  cfg.url          = newUrl || existing.url || cfg.url;
+  cfg.ck           = newCk  || existing.ck  || cfg.ck;
+  cfg.cs           = newCs  || existing.cs  || cfg.cs;
+  cfg.pollInterval = parseInt(document.getElementById('settingPoll').value) || cfg.pollInterval;
+  cfg.perPage      = parseInt(document.getElementById('settingPerPage').value) || cfg.perPage;
   localStorage.setItem('shiftdesk-cfg', JSON.stringify(cfg));
   WORKER_URL = document.getElementById('settingWorkerUrl').value.trim().replace(/\/$/, '');
   localStorage.setItem('shiftdesk-worker-url', WORKER_URL);
@@ -2491,6 +2498,18 @@ async function initApp() {
   }
   startPolling();
 }
+
+// Re-citeste credentials cand PWA-ul e restaurat din memorie (iOS back-forward cache / suspend)
+window.addEventListener('pageshow', e => {
+  if (e.persisted) {
+    loadSettings();
+  }
+});
+window.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    loadSettings();
+  }
+});
 </script>
 </body>
 </html>

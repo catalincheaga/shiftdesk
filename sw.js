@@ -1,6 +1,5 @@
-const CACHE = 'shiftdesk-v4';
+const CACHE = 'shiftdesk-v6';
 const SHELL = [
-  './shiftdesk-admin.html',
   './manifest.json',
   './icon.svg',
   './icon-maskable.svg',
