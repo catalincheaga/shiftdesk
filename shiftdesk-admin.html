@@ -2311,21 +2311,21 @@ function openOrderDetail(orderId) {
           ` : '<div style="color:var(--muted);font-size:13px">Nicio metoda de livrare.</div>'}
         </div>
       </div>
-      ${awbMeta.length ? `
       <div class="detail-section">
-        <h4>AWB / Tracking</h4>
-        ${awbMeta.map(m => `
+        <h4>AWB / Curier</h4>
+        ${awbMeta.length ? awbMeta.map(m => `
         <div style="display:flex;justify-content:space-between;padding:8px 10px;background:var(--bg);border-radius:8px;margin-bottom:6px;font-size:13px">
           <span style="color:var(--muted)">${escHtml(m.key)}</span>
           <span style="font-family:monospace;font-weight:600;color:var(--accent2)">${escHtml(String(m.value))}</span>
-        </div>`).join('')}
-      </div>` : `
-      <div class="detail-section">
-        <h4>AWB / Curier</h4>
-        <div style="font-size:13px;color:var(--muted);padding:12px;background:var(--bg);border-radius:10px;line-height:1.7">
-          Niciun AWB gasit pe aceasta comanda. Daca folosesti pluginul Colete Online sau similar, AWB-ul generat din WordPress admin va aparea automat aici (ca meta-data pe comanda).
-        </div>
-      </div>`}
+        </div>`).join('') : `
+        <div style="font-size:13px;color:var(--muted);margin-bottom:12px">Niciun AWB gasit. Genereaza-l din WordPress admin cu pluginul Colete Online.</div>`}
+        <a href="${escHtml(cfg.url)}/wp-admin/post.php?post=${o.id}&action=edit" target="_blank" rel="noopener"
+          style="display:inline-flex;align-items:center;gap:8px;padding:10px 18px;background:var(--accent2);color:#0a0a0f;border-radius:980px;font-weight:700;font-size:14px;text-decoration:none;transition:opacity 0.15s"
+          onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+          &#128663;&nbsp; Deschide comanda in WordPress Admin
+        </a>
+        <div style="font-size:11px;color:var(--muted);margin-top:8px">Se deschide un tab nou → sectiunea Colete Online din pagina comenzii.</div>
+      </div>
       ${usefulMeta.length ? `
       <div class="detail-section">
         <h4>Date suplimentare comanda</h4>
