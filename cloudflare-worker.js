@@ -11,7 +11,8 @@
  */
 
 const VAPID_PUBLIC  = 'BK2UDjPGQfRmtY0sc5Tg6sYZWZhngBcdLcU3bBYX611V3eWX-4WS8594i3ZmaI-vTj63nf_tUf-_-VLjdbgjtrg';
-const VAPID_PRIVATE = 'MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgEPnUxm3cPtoE8wZeqE5B9lwZBaf73zd4JWt-qj6w92-hRANCAAStlA4zxkH0ZrWNLHOU4OrGGVmYZ4AXHS3FN2wWF-tdVd3ll_uFkvOfeIt2ZmiPr04-t53_7VH_v_lS43W4I7a4';
+// VAPID_PRIVATE vine din Cloudflare Secret (Settings → Variables → Secrets → VAPID_PRIVATE)
+// Nu se hardcodeaza niciodata in cod sursa.
 const VAPID_SUBJECT = 'mailto:admin@shiftdesk.ro';
 
 const CORS_HEADERS = {
@@ -140,6 +141,7 @@ async function makeVapidJwt(audience) {
   const claims = b64u(enc.encode(JSON.stringify({ aud: audience, exp: now + 43200, sub: VAPID_SUBJECT })));
   const unsigned = `${header}.${claims}`;
 
+  if (!VAPID_PRIVATE) throw new Error('VAPID_PRIVATE secret not configured in Cloudflare Worker.');
   const key = await crypto.subtle.importKey(
     'pkcs8', b64uToBuf(VAPID_PRIVATE),
     { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign']
