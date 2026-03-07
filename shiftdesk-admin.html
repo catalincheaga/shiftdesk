@@ -1083,6 +1083,95 @@
     /* Ascunde textul din topbar-btn, pastreaza iconita */
     .topbar-btn { padding: 6px 10px; }
   }
+
+  /* ─── PRODUCT MODAL TABS ─── */
+  .modal-tabs {
+    display: flex; gap: 0; overflow-x: auto; scrollbar-width: none;
+    border-bottom: 1px solid var(--border);
+    margin: -20px -24px 16px; padding: 0 16px;
+    background: var(--surface); position: sticky; top: -20px; z-index: 2;
+  }
+  .modal-tabs::-webkit-scrollbar { display: none; }
+  .modal-tab {
+    padding: 10px 14px; font-size: 13px; font-weight: 600; color: var(--muted);
+    background: none; border: none; border-bottom: 2px solid transparent;
+    cursor: pointer; white-space: nowrap; transition: color 0.15s;
+  }
+  .modal-tab.active { color: var(--accent2); border-bottom-color: var(--accent2); }
+  .modal-tab:hover:not(.active) { color: var(--text); }
+  .modal-tab-panel { display: none; }
+  .modal-tab-panel.active { display: block; }
+
+  /* ─── DESCRIPTION TOGGLE ─── */
+  .desc-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .desc-toggle-btn {
+    font-size: 11px; padding: 3px 9px;
+    background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+    cursor: pointer; color: var(--muted); transition: background 0.12s;
+  }
+  .desc-toggle-btn:hover { background: var(--border); }
+  .desc-toggle-btn.html-mode { color: var(--accent2); border-color: var(--accent2); }
+
+  /* ─── CATEGORY LIST ─── */
+  .cat-list {
+    max-height: 180px; overflow-y: auto;
+    border: 1px solid var(--border); border-radius: 10px; padding: 6px;
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .cat-item {
+    display: flex; align-items: center; gap: 8px; padding: 5px 8px;
+    border-radius: 6px; cursor: pointer; font-size: 13px; color: var(--text);
+  }
+  .cat-item:hover { background: var(--bg); }
+  .cat-item input { margin: 0; accent-color: var(--accent2); }
+
+  /* ─── TAG CHIPS ─── */
+  .tag-chips {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; min-height: 44px;
+    cursor: text;
+  }
+  .tag-chip {
+    display: flex; align-items: center; gap: 4px;
+    background: var(--bg); border: 1px solid var(--border);
+    padding: 2px 8px 2px 10px; border-radius: 980px; font-size: 12px; color: var(--text);
+  }
+  .tag-chip-remove {
+    background: none; border: none; padding: 0 2px; cursor: pointer;
+    color: var(--muted); font-size: 15px; line-height: 1;
+  }
+  .tag-chip-remove:hover { color: var(--danger); }
+  .tag-add-input { border: none; outline: none; font-size: 13px; min-width: 100px; flex: 1; background: none; color: var(--text); }
+
+  /* ─── ATTRIBUTE ITEMS ─── */
+  .attr-item { padding: 10px 12px; background: var(--bg); border-radius: 10px; margin-bottom: 8px; }
+  .attr-name { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .attr-visible-row { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 12px; color: var(--muted); }
+  .attr-visible-row input { accent-color: var(--accent2); }
+
+  /* ─── PRODUCT SELECTOR (linked products) ─── */
+  .product-selector-list {
+    border: 1px solid var(--border); border-radius: 10px;
+    max-height: 160px; overflow-y: auto;
+  }
+  .product-selector-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px; font-size: 13px; color: var(--text); cursor: pointer;
+  }
+  .product-selector-item:hover { background: var(--bg); }
+  .product-selector-item input { margin: 0; accent-color: var(--accent2); }
+  .product-selector-item label { cursor: pointer; flex: 1; }
+
+  /* ─── PAIRED DISCOUNT NOTE ─── */
+  .paired-note {
+    background: rgba(255,170,71,0.1); border: 1px solid var(--warn);
+    border-radius: 10px; padding: 10px 12px; font-size: 12px; color: var(--muted);
+    margin-top: 8px; line-height: 1.5;
+  }
+
+  @media (max-width: 600px) {
+    .modal-tabs { margin: -14px -18px 12px; top: -14px; }
+  }
 </style>
 </head>
 <body>
@@ -1162,6 +1251,7 @@
     <div class="modal-body" id="productModalBody"></div>
     <div class="modal-footer">
       <button class="topbar-btn" onclick="closeProductModal()">Anuleaza</button>
+      <button class="topbar-btn" id="cloneProductBtn" onclick="cloneProduct(currentEditProductId)" style="display:none">&#10697; Cloneaza</button>
       <button class="save-btn" id="productSaveBtn" onclick="saveProductFromModal()">Salveaza</button>
     </div>
   </div>
@@ -1272,6 +1362,7 @@
               <option value="draft">Draft</option>
               <option value="private">Private</option>
             </select>
+            <button class="save-btn" onclick="openNewProductModal()" style="white-space:nowrap">&#43; Produs nou</button>
           </div>
           <div id="productsGrid" class="products-grid">
             <div class="loading" style="grid-column:1/-1"><div class="spinner"></div> Se incarca produsele...</div>
@@ -1534,6 +1625,9 @@ let currentEditProductId = null;
 let currentOrderModalId = null;
 let deferredInstallPrompt = null;
 let editImages = []; // { id, src, name, alt } — imaginile din modalul de editare produs
+let allCategories = [];
+let allTags = [];
+let _editTagIds = []; // tags currently in the chip input
 
 // ============================
 // PWA
@@ -2170,6 +2264,7 @@ function renderProductCard(p) {
         ${descPreview ? `<div class="product-desc-preview">${escHtml(descPreview)}</div>` : ''}
         <div class="product-card-footer">
           ${prodStatusBadge(p.status)}
+          <button class="edit-btn" onclick="cloneProduct(${p.id})" title="Cloneaza produsul" style="background:var(--bg)">&#10697;</button>
           <button class="edit-btn" onclick="openProductEdit(${p.id})">&#9998;&nbsp; Editeaza</button>
         </div>
       </div>
@@ -2191,94 +2286,376 @@ function filterProducts() {
 // ============================
 // PRODUCT EDIT MODAL
 // ============================
-function openProductEdit(productId) {
-  const p = allProducts.find(x => x.id===productId);
+async function loadCategoriesAndTags() {
+  if (allCategories.length || allTags.length) return;
+  try {
+    [allCategories, allTags] = await Promise.all([
+      wcFetch('/products/categories?per_page=100&orderby=name&order=asc'),
+      wcFetch('/products/tags?per_page=100&orderby=name&order=asc'),
+    ]);
+  } catch(_) { allCategories = []; allTags = []; }
+}
+
+function htmlToText(html) {
+  if (!html) return '';
+  return html
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n\n')
+    .replace(/<\/li>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function textToHtml(text) {
+  if (!text) return '';
+  return text
+    .split(/\n\n+/)
+    .map(p => `<p>${p.replace(/\n/g, '<br>').trim()}</p>`)
+    .filter(p => p !== '<p></p>')
+    .join('\n');
+}
+
+function toggleDescMode(fieldId, btn) {
+  const ta = document.getElementById(fieldId);
+  if (!ta) return;
+  if (!ta.dataset.mode || ta.dataset.mode === 'text') {
+    ta.value = textToHtml(ta.value);
+    ta.dataset.mode = 'html';
+    btn.textContent = '← Text';
+    btn.classList.add('html-mode');
+  } else {
+    ta.value = htmlToText(ta.value);
+    ta.dataset.mode = 'text';
+    btn.textContent = 'HTML →';
+    btn.classList.remove('html-mode');
+  }
+}
+
+function switchProductTab(tabId) {
+  document.querySelectorAll('#productTabs .modal-tab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.modal-tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('ptab-' + tabId)?.classList.add('active');
+  document.querySelector(`#productTabs [data-tab="${tabId}"]`)?.classList.add('active');
+}
+
+function toggleManageStock(cb) {
+  const grp = document.getElementById('stockQtyGroup');
+  if (!grp) return;
+  grp.style.opacity = cb.checked ? '1' : '0.4';
+  grp.style.pointerEvents = cb.checked ? 'auto' : 'none';
+}
+
+function addTagChip(name, id) {
+  const container = document.getElementById('tagChipsContainer');
+  const input = document.getElementById('tagAddInput');
+  if (!container || !input || !name.trim()) return;
+  const chip = document.createElement('div');
+  chip.className = 'tag-chip';
+  chip.dataset.tagId = id != null ? String(id) : '';
+  chip.dataset.tagName = name.trim();
+  chip.innerHTML = `${escHtml(name.trim())}<button class="tag-chip-remove" onclick="this.parentElement.remove()" title="Sterge">&#x00D7;</button>`;
+  container.insertBefore(chip, input);
+}
+
+function handleTagInput(e) {
+  if (e.key === 'Enter' || e.key === ',') {
+    e.preventDefault();
+    const val = e.target.value.replace(/,/g, '').trim();
+    if (val) { addTagChip(val, null); e.target.value = ''; }
+  }
+}
+
+function buildProductModalHTML(p) {
+  const selCatIds = new Set((p.categories || []).map(c => c.id));
+
+  const catHTML = allCategories.length
+    ? allCategories.map(c => `
+        <label class="cat-item">
+          <input type="checkbox" name="catCheck" value="${c.id}" ${selCatIds.has(c.id) ? 'checked' : ''}>
+          <span>${escHtml(c.name)}</span>
+        </label>`).join('')
+    : '<div style="color:var(--muted);font-size:13px;padding:8px">Categoriile nu s-au putut incarca.</div>';
+
+  const attrHTML = (p.attributes || []).map(a => `
+    <div class="attr-item">
+      <div class="attr-name">${escHtml(a.name)}</div>
+      <input class="form-input" data-attr-id="${a.id != null ? a.id : ''}" data-attr-name="${escHtml(a.name)}"
+        value="${escHtml((a.options || []).join(', '))}" placeholder="Valori separate prin virgula">
+      <div class="attr-visible-row">
+        <input type="checkbox" data-attr-visible="${a.id != null ? a.id : escHtml(a.name)}" ${a.visible ? 'checked' : ''}>
+        <span>Vizibil pe pagina produsului</span>
+      </div>
+    </div>`).join('') || '<div style="color:var(--muted);font-size:13px;padding:8px">Niciun atribut setat. Poti adauga din WooCommerce &gt; Produse &gt; Atribute.</div>';
+
+  const upsellIds   = new Set(p.upsell_ids || []);
+  const crossIds    = new Set(p.cross_sell_ids || []);
+  const discNote    = (p.meta_data || []).find(m => m.key === '_shiftdesk_discount_note')?.value || '';
+  const makeSelector = (selSet, inputName) => allProducts
+    .filter(prod => prod.id !== p.id)
+    .map(prod => `
+      <label class="product-selector-item">
+        <input type="checkbox" name="${inputName}" value="${prod.id}" ${selSet.has(prod.id) ? 'checked' : ''}>
+        <label>#${prod.id} — ${escHtml(prod.name)}</label>
+      </label>`).join('') || '<div style="color:var(--muted);font-size:13px;padding:10px">Niciun alt produs.</div>';
+
+  const dim = p.dimensions || {};
+  const shortText = htmlToText(p.short_description || '');
+  const descText  = htmlToText(p.description || '');
+
+  return `
+    <div class="modal-tabs" id="productTabs">
+      <button class="modal-tab active" data-tab="general"  onclick="switchProductTab('general')">General</button>
+      <button class="modal-tab"        data-tab="pricing"  onclick="switchProductTab('pricing')">Pret &amp; Stoc</button>
+      <button class="modal-tab"        data-tab="shipping" onclick="switchProductTab('shipping')">Livrare</button>
+      <button class="modal-tab"        data-tab="attrs"    onclick="switchProductTab('attrs')">Atribute</button>
+      <button class="modal-tab"        data-tab="linked"   onclick="switchProductTab('linked')">Legate</button>
+      <button class="modal-tab"        data-tab="images"   onclick="switchProductTab('images')">Imagini</button>
+    </div>
+
+    <!-- GENERAL -->
+    <div class="modal-tab-panel active" id="ptab-general">
+      <div class="form-grid">
+        <div class="form-group span-2">
+          <label class="form-label">Titlu produs *</label>
+          <input class="form-input" id="editName" value="${escHtml(p.name || '')}" placeholder="Titlu produs">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Status</label>
+          <select class="form-select" id="editStatus">
+            <option value="publish" ${p.status==='publish'?'selected':''}>Publicat</option>
+            <option value="draft"   ${p.status==='draft'?'selected':''}>Draft</option>
+            <option value="private" ${p.status==='private'?'selected':''}>Privat</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tip produs</label>
+          <input class="form-input" value="${escHtml(p.type || 'simple')}" disabled>
+        </div>
+        <div class="form-group span-2">
+          <label class="cat-item" style="padding:0">
+            <input type="checkbox" id="editFeatured" ${p.featured ? 'checked' : ''}>
+            <span style="font-size:14px">Produs nou / recomandat (Featured)</span>
+          </label>
+        </div>
+        <div class="form-group span-2">
+          <div class="desc-toolbar">
+            <label class="form-label" style="margin:0">Descriere scurta</label>
+            <button class="desc-toggle-btn" onclick="toggleDescMode('editShortDesc',this)">HTML →</button>
+          </div>
+          <textarea class="form-textarea" id="editShortDesc" data-mode="text" placeholder="Descriere scurta...">${escHtml(shortText)}</textarea>
+          <span class="form-hint">Afisata sub titlu. Modul HTML pentru formatare avansata.</span>
+        </div>
+        <div class="form-group span-2">
+          <div class="desc-toolbar">
+            <label class="form-label" style="margin:0">Descriere completa</label>
+            <button class="desc-toggle-btn" onclick="toggleDescMode('editDesc',this)">HTML →</button>
+          </div>
+          <textarea class="form-textarea" style="min-height:120px" id="editDesc" data-mode="text" placeholder="Descriere completa...">${escHtml(descText)}</textarea>
+        </div>
+        <div class="form-group span-2">
+          <label class="form-label">Categorii</label>
+          <div class="cat-list">${catHTML}</div>
+        </div>
+        <div class="form-group span-2">
+          <label class="form-label">Etichete (tags)</label>
+          <div class="tag-chips" id="tagChipsContainer" onclick="document.getElementById('tagAddInput').focus()">
+            <input class="tag-add-input" id="tagAddInput" placeholder="Scrie si apasa Enter..." onkeydown="handleTagInput(event)">
+          </div>
+          <span class="form-hint">Apasa Enter sau virgula pentru a adauga.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- PRET & STOC -->
+    <div class="modal-tab-panel" id="ptab-pricing">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Pret regulat (RON)</label>
+          <input class="form-input" id="editPrice" type="number" step="0.01" min="0" value="${p.regular_price || ''}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Pret reducere (RON)</label>
+          <input class="form-input" id="editSalePrice" type="number" step="0.01" min="0" value="${p.sale_price || ''}">
+          <span class="form-hint">Lasa gol pentru a dezactiva.</span>
+        </div>
+        <div class="form-group span-2">
+          <label class="form-label">SKU</label>
+          <input class="form-input" id="editSku" value="${escHtml(p.sku || '')}" placeholder="Cod produs unic">
+        </div>
+        <div class="form-group span-2">
+          <label class="cat-item" style="padding:0">
+            <input type="checkbox" id="editManageStock" ${p.manage_stock ? 'checked' : ''} onchange="toggleManageStock(this)">
+            <span style="font-size:14px">Gestioneaza stocul automat</span>
+          </label>
+        </div>
+        <div class="form-group" id="stockQtyGroup" style="${p.manage_stock ? '' : 'opacity:0.4;pointer-events:none'}">
+          <label class="form-label">Cantitate stoc</label>
+          <input class="form-input" id="editStockQty" type="number" min="0"
+            value="${p.stock_quantity != null ? p.stock_quantity : ''}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Status stoc</label>
+          <select class="form-select" id="editStockStatus">
+            <option value="instock"     ${p.stock_status==='instock'?'selected':''}>In stoc</option>
+            <option value="outofstock"  ${p.stock_status==='outofstock'?'selected':''}>Fara stoc</option>
+            <option value="onbackorder" ${p.stock_status==='onbackorder'?'selected':''}>La comanda</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Comenzi in asteptare</label>
+          <select class="form-select" id="editBackorders">
+            <option value="no"     ${(p.backorders||'no')==='no'?'selected':''}>Nu accepta</option>
+            <option value="notify" ${p.backorders==='notify'?'selected':''}>Accepta si notifica</option>
+            <option value="yes"    ${p.backorders==='yes'?'selected':''}>Accepta</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Ultima modificare</label>
+          <input class="form-input" value="${fmtDate(p.date_modified)}" disabled>
+        </div>
+      </div>
+    </div>
+
+    <!-- LIVRARE -->
+    <div class="modal-tab-panel" id="ptab-shipping">
+      <div class="form-grid">
+        <div class="form-group span-2">
+          <label class="form-label">Greutate (kg)</label>
+          <input class="form-input" id="editWeight" type="number" step="0.001" min="0" value="${p.weight || ''}" placeholder="ex: 1.5">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Lungime (cm)</label>
+          <input class="form-input" id="editDimL" type="number" step="0.1" min="0" value="${dim.length || ''}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Latime (cm)</label>
+          <input class="form-input" id="editDimW" type="number" step="0.1" min="0" value="${dim.width || ''}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Inaltime (cm)</label>
+          <input class="form-input" id="editDimH" type="number" step="0.1" min="0" value="${dim.height || ''}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Clasa livrare</label>
+          <input class="form-input" id="editShippingClass" value="${escHtml(p.shipping_class || '')}" placeholder="ex: voluminous">
+          <span class="form-hint">Lasa gol pentru clasa implicita.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ATRIBUTE -->
+    <div class="modal-tab-panel" id="ptab-attrs">
+      <div style="padding-bottom:4px">
+        <p class="form-hint" style="margin-bottom:12px">Atributele includ si brand-ul daca este configurat ca atribut in WooCommerce.</p>
+        ${attrHTML}
+        <p class="form-hint" style="margin-top:4px">Pentru atribute noi, mergi in WordPress &gt; Produse &gt; Atribute.</p>
+      </div>
+    </div>
+
+    <!-- PRODUSE LEGATE -->
+    <div class="modal-tab-panel" id="ptab-linked">
+      <div>
+        <div class="form-group" style="margin-bottom:16px">
+          <label class="form-label">Upsells (recomandate pe pagina produsului)</label>
+          <div class="product-selector-list">${makeSelector(upsellIds, 'upsellCheck')}</div>
+        </div>
+        <div class="form-group" style="margin-bottom:16px">
+          <label class="form-label">Cross-sells / Produse pereche (recomandate in cos)</label>
+          <div class="product-selector-list">${makeSelector(crossIds, 'crossSellCheck')}</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Nota reducere pentru pereche</label>
+          <input class="form-input" id="editDiscountNote" value="${escHtml(discNote)}" placeholder="ex: 30% reducere la produsul Y cand cumperi impreuna cu X">
+          <div class="paired-note">
+            <strong>Cum functioneaza:</strong> Bifa produsele pereche in Cross-sells. Nota e salvata ca meta-data pe produs (vizibila in backend). Pentru a aplica automat reducerea la casa, ai nevoie de un plugin WooCommerce (ex: Dynamic Pricing, Product Bundles).
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- IMAGINI -->
+    <div class="modal-tab-panel" id="ptab-images">
+      <div id="imgGallerySection">
+        <div class="img-gallery-header">
+          <span class="form-label">Imagini produs</span>
+          <span class="img-gallery-count" id="imgGalleryCount">${editImages.length} imagine(i)</span>
+        </div>
+        <div class="img-gallery-grid" id="imgGalleryGrid"></div>
+        <input type="file" id="editImgInputNew" accept="image/*" multiple style="display:none" onchange="addNewEditImages(this)">
+        <p class="form-hint" style="margin-top:8px">Prima imagine este cea principala. Alt text si titlu sunt importante pentru SEO.</p>
+      </div>
+    </div>
+  `;
+}
+
+async function openProductEdit(productId) {
+  const p = allProducts.find(x => x.id === productId);
   if (!p) return;
   currentEditProductId = productId;
   document.getElementById('productModalSub').textContent = `#${p.id} — ${p.name}`;
-
-  // Initializeaza editImages din datele produsului
-  editImages = (p.images || []).map(img => ({
-    id:   img.id,
-    src:  img.src,
-    name: img.name || '',
-    alt:  img.alt  || ''
-  }));
-
-  document.getElementById('productModalBody').innerHTML = `
-    <div id="imgGallerySection" style="margin-bottom:20px">
-      <div class="img-gallery-header">
-        <span class="form-label">Imagini produs</span>
-        <span class="img-gallery-count" id="imgGalleryCount">${editImages.length} imagine(i)</span>
-      </div>
-      <div class="img-gallery-grid" id="imgGalleryGrid"></div>
-      <input type="file" id="editImgInputNew" accept="image/*" multiple style="display:none" onchange="addNewEditImages(this)">
-      <p class="form-hint" style="margin-top:8px">Prima imagine este imaginea principala. Apasa pe imagine pentru a o inlocui. <strong>Alt text</strong> si <strong>titlu</strong> sunt importante pentru SEO.</p>
-    </div>
-
-    <div class="form-grid">
-      <div class="form-group span-2">
-        <label class="form-label">Titlu produs *</label>
-        <input class="form-input" id="editName" value="${escHtml(p.name)}" placeholder="Titlu produs">
-      </div>
-      <div class="form-group span-2">
-        <label class="form-label">Descriere scurta</label>
-        <textarea class="form-textarea" id="editShortDesc" placeholder="Descriere scurta (HTML acceptat)">${p.short_description||''}</textarea>
-        <span class="form-hint">Afisata sub titlu pe pagina produsului. HTML acceptat.</span>
-      </div>
-      <div class="form-group span-2">
-        <label class="form-label">Descriere completa</label>
-        <textarea class="form-textarea" style="min-height:130px" id="editDesc" placeholder="Descriere completa (HTML acceptat)">${p.description||''}</textarea>
-        <span class="form-hint">Continut complet al paginii produsului. HTML acceptat.</span>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Pret regulat (RON)</label>
-        <input class="form-input" id="editPrice" type="number" step="0.01" min="0" value="${p.regular_price||''}">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Pret reducere (RON)</label>
-        <input class="form-input" id="editSalePrice" type="number" step="0.01" min="0" value="${p.sale_price||''}">
-        <span class="form-hint">Lasa gol pentru a dezactiva reducerea.</span>
-      </div>
-      <div class="form-group">
-        <label class="form-label">SKU</label>
-        <input class="form-input" id="editSku" value="${escHtml(p.sku||'')}" placeholder="Cod produs unic">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Status produs</label>
-        <select class="form-select" id="editStatus">
-          <option value="publish" ${p.status==='publish'?'selected':''}>Publicat</option>
-          <option value="draft"   ${p.status==='draft'?'selected':''}>Draft</option>
-          <option value="private" ${p.status==='private'?'selected':''}>Privat</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Cantitate stoc</label>
-        <input class="form-input" id="editStockQty" type="number" min="0"
-          value="${p.stock_quantity!==null&&p.stock_quantity!==undefined ? p.stock_quantity : ''}"
-          placeholder="Gestionat manual">
-        <span class="form-hint">Lasa gol pentru stoc negestionat.</span>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Status stoc</label>
-        <select class="form-select" id="editStockStatus">
-          <option value="instock"     ${p.stock_status==='instock'?'selected':''}>In stoc</option>
-          <option value="outofstock"  ${p.stock_status==='outofstock'?'selected':''}>Fara stoc</option>
-          <option value="onbackorder" ${p.stock_status==='onbackorder'?'selected':''}>La comanda</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Tip produs</label>
-        <input class="form-input" value="${escHtml(p.type||'simple')}" disabled>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Ultima modificare</label>
-        <input class="form-input" value="${fmtDate(p.date_modified)}" disabled>
-      </div>
-    </div>`;
-
-  renderEditImages();
+  document.getElementById('cloneProductBtn').style.display = '';
+  document.getElementById('productModalBody').innerHTML =
+    '<div style="padding:60px;text-align:center"><div class="spinner"></div></div>';
   document.getElementById('productModal').classList.add('open');
+
+  await loadCategoriesAndTags();
+
+  editImages = (p.images || []).map(img => ({ id: img.id, src: img.src, name: img.name || '', alt: img.alt || '' }));
+  document.getElementById('productModalBody').innerHTML = buildProductModalHTML(p);
+  renderEditImages();
+  (p.tags || []).forEach(t => addTagChip(t.name, t.id));
+}
+
+async function openNewProductModal() {
+  currentEditProductId = null;
+  document.getElementById('productModalSub').textContent = 'Produs nou';
+  document.getElementById('cloneProductBtn').style.display = 'none';
+  document.getElementById('productModalBody').innerHTML =
+    '<div style="padding:60px;text-align:center"><div class="spinner"></div></div>';
+  document.getElementById('productModal').classList.add('open');
+
+  await loadCategoriesAndTags();
+
+  editImages = [];
+  const blank = {
+    id: null, name: '', status: 'draft', type: 'simple', featured: false,
+    description: '', short_description: '', regular_price: '', sale_price: '', sku: '',
+    manage_stock: false, stock_quantity: null, stock_status: 'instock', backorders: 'no',
+    weight: '', dimensions: {}, shipping_class: '',
+    categories: [], tags: [], attributes: [], upsell_ids: [], cross_sell_ids: [], meta_data: [], images: [],
+    date_modified: null,
+  };
+  document.getElementById('productModalBody').innerHTML = buildProductModalHTML(blank);
+  renderEditImages();
+}
+
+async function cloneProduct(productId) {
+  const p = allProducts.find(x => x.id === productId);
+  if (!p) return;
+  if (!confirm(`Cloneaza produsul "${p.name}"? Va fi creat ca Draft.`)) return;
+  try {
+    const clone = {
+      name: p.name + ' (Copie)', status: 'draft',
+      description: p.description || '', short_description: p.short_description || '',
+      regular_price: p.regular_price || '', sale_price: '',
+      sku: '', manage_stock: p.manage_stock, stock_quantity: p.stock_quantity,
+      stock_status: p.stock_status, backorders: p.backorders || 'no',
+      weight: p.weight || '', dimensions: p.dimensions || {},
+      shipping_class: p.shipping_class || '',
+      categories: p.categories || [], tags: p.tags || [], attributes: p.attributes || [],
+      images: (p.images || []).map(img => ({ id: img.id, alt: img.alt || '', name: img.name || '' })),
+    };
+    const created = await wcFetch('/products', { method: 'POST', body: JSON.stringify(clone) });
+    allProducts.unshift(created);
+    renderProducts();
+    showToast('Clonat', `"${clone.name}" a fost creat ca Draft`, 'success');
+  } catch(e) { showToast('Eroare clonare', e.message, 'error'); }
 }
 
 function renderEditImages() {
@@ -2383,46 +2760,97 @@ document.getElementById('productModal').addEventListener('click', e => {
 });
 
 async function saveProductFromModal() {
-  const pid = currentEditProductId;
-  if (!pid) return;
+  const pid = currentEditProductId; // null = produs nou
   const btn = document.getElementById('productSaveBtn');
   btn.disabled = true; btn.textContent = 'Se salveaza...';
 
-  const name = document.getElementById('editName').value.trim();
+  const nameEl = document.getElementById('editName');
+  const name = nameEl?.value.trim() || '';
   if (!name) {
     showToast('Eroare', 'Titlul produsului este obligatoriu', 'error');
     btn.disabled = false; btn.textContent = 'Salveaza';
     return;
   }
 
-  // Sincronizeaza alt/name din inputuri inainte de save
   syncEditImagesFromInputs();
 
-  const stockQtyVal = document.getElementById('editStockQty').value;
+  // Descriere: daca e in modul text, converteste la HTML
+  const shortDescEl = document.getElementById('editShortDesc');
+  const descEl      = document.getElementById('editDesc');
+  const shortDesc = shortDescEl?.dataset.mode === 'html' ? shortDescEl.value : textToHtml(shortDescEl?.value || '');
+  const desc      = descEl?.dataset.mode === 'html'      ? descEl.value      : textToHtml(descEl?.value || '');
+
+  // Categorii
+  const categories = Array.from(document.querySelectorAll('[name="catCheck"]:checked'))
+    .map(cb => ({ id: parseInt(cb.value) }));
+
+  // Tags (chips)
+  const tags = Array.from(document.querySelectorAll('#tagChipsContainer .tag-chip'))
+    .map(chip => chip.dataset.tagId ? { id: parseInt(chip.dataset.tagId) } : { name: chip.dataset.tagName });
+
+  // Atribute
+  const attributes = Array.from(document.querySelectorAll('[data-attr-name]')).map(input => {
+    const attrId   = input.dataset.attrId;
+    const attrName = input.dataset.attrName;
+    const options  = input.value.split(',').map(v => v.trim()).filter(Boolean);
+    const visEl    = document.querySelector(`[data-attr-visible="${attrId || attrName}"]`);
+    const obj = { name: attrName, options, visible: visEl ? visEl.checked : true };
+    if (attrId) obj.id = parseInt(attrId);
+    return obj;
+  }).filter(a => a.options.length > 0);
+
+  // Produse legate
+  const upsell_ids    = Array.from(document.querySelectorAll('[name="upsellCheck"]:checked')).map(cb => parseInt(cb.value));
+  const cross_sell_ids = Array.from(document.querySelectorAll('[name="crossSellCheck"]:checked')).map(cb => parseInt(cb.value));
+  const discountNote  = document.getElementById('editDiscountNote')?.value.trim() || '';
+
+  const manageStock  = document.getElementById('editManageStock')?.checked || false;
+  const stockQtyVal  = document.getElementById('editStockQty')?.value || '';
+
   const changes = {
     name,
-    description:       document.getElementById('editDesc').value,
-    short_description: document.getElementById('editShortDesc').value,
-    regular_price:     document.getElementById('editPrice').value,
-    sale_price:        document.getElementById('editSalePrice').value,
-    sku:               document.getElementById('editSku').value,
-    status:            document.getElementById('editStatus').value,
-    stock_quantity:    stockQtyVal==='' ? null : parseInt(stockQtyVal),
-    stock_status:      document.getElementById('editStockStatus').value,
-    manage_stock:      stockQtyVal !== '',
-    images:            editImages.map(img => ({ id: img.id, alt: img.alt || '', name: img.name || '' }))
+    description:       desc,
+    short_description: shortDesc,
+    regular_price:     document.getElementById('editPrice')?.value || '',
+    sale_price:        document.getElementById('editSalePrice')?.value || '',
+    sku:               document.getElementById('editSku')?.value || '',
+    status:            document.getElementById('editStatus')?.value || 'draft',
+    featured:          document.getElementById('editFeatured')?.checked || false,
+    manage_stock:      manageStock,
+    stock_quantity:    manageStock && stockQtyVal !== '' ? parseInt(stockQtyVal) : null,
+    stock_status:      document.getElementById('editStockStatus')?.value || 'instock',
+    backorders:        document.getElementById('editBackorders')?.value || 'no',
+    weight:            document.getElementById('editWeight')?.value || '',
+    dimensions: {
+      length: document.getElementById('editDimL')?.value || '',
+      width:  document.getElementById('editDimW')?.value || '',
+      height: document.getElementById('editDimH')?.value || '',
+    },
+    shipping_class:    document.getElementById('editShippingClass')?.value || '',
+    categories, tags, attributes, upsell_ids, cross_sell_ids,
+    images: editImages.map(img => ({ id: img.id, alt: img.alt || '', name: img.name || '' })),
+    ...(discountNote ? { meta_data: [{ key: '_shiftdesk_discount_note', value: discountNote }] } : {}),
   };
 
   try {
-    const updated = await wcFetch(`/products/${pid}`, { method:'PUT', body:JSON.stringify(changes) });
-    const idx = allProducts.findIndex(p => p.id===pid);
-    if (idx !== -1) allProducts[idx] = { ...allProducts[idx], ...updated };
-    showToast('Salvat', `"${name}" a fost actualizat`, 'success');
-    const card = document.querySelector(`[data-product-id="${pid}"]`);
-    if (card) {
-      const tmp = document.createElement('div');
-      tmp.innerHTML = renderProductCard(allProducts[idx]);
-      card.replaceWith(tmp.firstElementChild);
+    if (pid) {
+      // Editeaza existent
+      const updated = await wcFetch(`/products/${pid}`, { method: 'PUT', body: JSON.stringify(changes) });
+      const idx = allProducts.findIndex(p => p.id === pid);
+      if (idx !== -1) allProducts[idx] = { ...allProducts[idx], ...updated };
+      showToast('Salvat', `"${name}" a fost actualizat`, 'success');
+      const card = document.querySelector(`[data-product-id="${pid}"]`);
+      if (card) {
+        const tmp = document.createElement('div');
+        tmp.innerHTML = renderProductCard(allProducts[idx]);
+        card.replaceWith(tmp.firstElementChild);
+      }
+    } else {
+      // Produs nou
+      const created = await wcFetch('/products', { method: 'POST', body: JSON.stringify(changes) });
+      allProducts.unshift(created);
+      renderProducts();
+      showToast('Creat', `"${name}" a fost adaugat`, 'success');
     }
     closeProductModal();
   } catch(e) {
