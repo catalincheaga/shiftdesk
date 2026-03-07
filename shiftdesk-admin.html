@@ -1214,7 +1214,7 @@
 
 <!-- ORDER DETAIL MODAL -->
 <div class="modal-overlay" id="orderModal">
-  <div class="modal">
+  <div class="modal modal-lg">
     <div class="modal-head">
       <div class="modal-head-text">
         <h2 id="orderModalTitle">Comanda #0000</h2>
@@ -2128,78 +2128,259 @@ async function changeOrderStatusFromModal(newStatus) {
 // ============================
 // ORDER DETAIL MODAL
 // ============================
+function switchOrderTab(tabId) {
+  document.querySelectorAll('#orderTabs .modal-tab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('#orderModalBody .modal-tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('otab-' + tabId)?.classList.add('active');
+  document.querySelector(`#orderTabs [data-tab="${tabId}"]`)?.classList.add('active');
+}
+
+function fmtAddr(a) {
+  if (!a) return '—';
+  return [a.first_name+' '+a.last_name, a.company, a.address_1, a.address_2,
+    [a.city, a.postcode].filter(Boolean).join(', '), a.state, a.country]
+    .map(s => (s||'').trim()).filter(Boolean).join('<br>');
+}
+
 function openOrderDetail(orderId) {
-  const o = allOrders.find(x => x.id===orderId);
+  const o = allOrders.find(x => x.id === orderId);
   if (!o) return;
   currentOrderModalId = orderId;
   document.getElementById('orderModalTitle').textContent = `Comanda #${o.id}`;
   document.getElementById('orderModalSub').innerHTML = statusBadge(o.status);
 
-  const shippingAddr = [
-    o.shipping.address_1||o.billing.address_1,
-    o.shipping.address_2||o.billing.address_2,
-    [o.shipping.city||o.billing.city, o.shipping.postcode||o.billing.postcode].filter(Boolean).join(', '),
-    o.shipping.country||o.billing.country
-  ].filter(Boolean).join('<br>');
-
   const shippingLine = o.shipping_lines?.[0];
   const shippingMethod = shippingLine
-    ? `${shippingLine.method_title} — ${parseFloat(shippingLine.total).toFixed(2)} ${o.currency}`
+    ? `${shippingLine.method_title}${parseFloat(shippingLine.total) > 0 ? ' — ' + parseFloat(shippingLine.total).toFixed(2) + ' ' + o.currency : ' (gratuit)'}`
     : '—';
 
+  // Meta-data: filtrare utila
+  const usefulMeta = (o.meta_data || []).filter(m => !m.key.startsWith('_wc_') && m.value && String(m.value).length < 300);
+  const awbMeta    = (o.meta_data || []).filter(m => /awb|tracking|curier|colete/i.test(m.key));
+
+  // Cupoane
+  const coupons = (o.coupon_lines || []);
+
+  // Fee lines
+  const fees = (o.fee_lines || []);
+
+  // Refunds
+  const refunds = (o.refunds || []);
+
   document.getElementById('orderModalBody').innerHTML = `
-    <div class="detail-section">
-      <h4>Client</h4>
-      <div class="detail-grid">
-        <div class="detail-item"><label>Nume</label><span>${escHtml(o.billing.first_name)} ${escHtml(o.billing.last_name)}</span></div>
-        <div class="detail-item"><label>Email</label><span>${escHtml(o.billing.email||'—')}</span></div>
-        <div class="detail-item"><label>Telefon</label><span>${escHtml(o.billing.phone||'—')}</span></div>
-        <div class="detail-item"><label>Data comenzii</label><span>${fmtDate(o.date_created)}</span></div>
-        ${o.date_completed ? `<div class="detail-item"><label>Finalizata</label><span>${fmtDate(o.date_completed)}</span></div>` : ''}
-        <div class="detail-item"><label>Plata</label><span>${escHtml(o.payment_method_title||o.payment_method||'—')}</span></div>
+    <div class="modal-tabs" id="orderTabs">
+      <button class="modal-tab active" data-tab="summary"  onclick="switchOrderTab('summary')">Sumar</button>
+      <button class="modal-tab"        data-tab="products" onclick="switchOrderTab('products')">Produse</button>
+      <button class="modal-tab"        data-tab="addrs"    onclick="switchOrderTab('addrs')">Adrese</button>
+      <button class="modal-tab"        data-tab="notes"    onclick="switchOrderTab('notes')">Note</button>
+      <button class="modal-tab"        data-tab="shipping" onclick="switchOrderTab('shipping')">Expeditie</button>
+    </div>
+
+    <!-- SUMAR -->
+    <div class="modal-tab-panel active" id="otab-summary">
+      <div class="detail-section">
+        <h4>Client</h4>
+        <div class="detail-grid">
+          <div class="detail-item"><label>Nume</label><span>${escHtml(o.billing.first_name)} ${escHtml(o.billing.last_name)}</span></div>
+          <div class="detail-item"><label>Email</label><span><a href="mailto:${escHtml(o.billing.email||'')}" style="color:var(--accent2)">${escHtml(o.billing.email||'—')}</a></span></div>
+          <div class="detail-item"><label>Telefon</label><span><a href="tel:${escHtml(o.billing.phone||'')}" style="color:var(--accent2)">${escHtml(o.billing.phone||'—')}</a></span></div>
+          <div class="detail-item"><label>Data comenzii</label><span>${fmtDate(o.date_created)}</span></div>
+          ${o.date_modified ? `<div class="detail-item"><label>Ultima modificare</label><span>${fmtDate(o.date_modified)}</span></div>` : ''}
+          ${o.date_completed ? `<div class="detail-item"><label>Finalizata</label><span>${fmtDate(o.date_completed)}</span></div>` : ''}
+          <div class="detail-item"><label>Metoda plata</label><span>${escHtml(o.payment_method_title||o.payment_method||'—')}</span></div>
+          ${o.transaction_id ? `<div class="detail-item"><label>ID tranzactie</label><span style="font-family:monospace;font-size:12px">${escHtml(o.transaction_id)}</span></div>` : ''}
+          ${o.customer_id ? `<div class="detail-item"><label>ID client</label><span>#${o.customer_id}</span></div>` : ''}
+          <div class="detail-item"><label>IP client</label><span style="font-size:12px;color:var(--muted)">${escHtml(o.customer_ip_address||'—')}</span></div>
+        </div>
+      </div>
+      <div class="detail-section">
+        <h4>Sumar financiar</h4>
+        <div style="display:grid;grid-template-columns:1fr auto;gap:6px 20px;font-size:13px">
+          <span style="color:var(--muted)">Subtotal produse</span>
+          <span style="text-align:right;font-weight:500">${parseFloat(o.subtotal||0).toFixed(2)} ${o.currency}</span>
+          <span style="color:var(--muted)">Transport (${escHtml(shippingMethod)})</span>
+          <span style="text-align:right;font-weight:500">${parseFloat(o.shipping_total||0).toFixed(2)} ${o.currency}</span>
+          ${fees.map(f => `
+          <span style="color:var(--muted)">${escHtml(f.name)}</span>
+          <span style="text-align:right;font-weight:500">${parseFloat(f.total).toFixed(2)} ${o.currency}</span>`).join('')}
+          ${parseFloat(o.discount_total||0) > 0 ? `
+          <span style="color:var(--success)">Discount${coupons.length ? ' (' + coupons.map(c => escHtml(c.code)).join(', ') + ')' : ''}</span>
+          <span style="text-align:right;font-weight:500;color:var(--success)">-${parseFloat(o.discount_total).toFixed(2)} ${o.currency}</span>` : ''}
+          <span style="color:var(--muted)">TVA</span>
+          <span style="text-align:right;font-weight:500">${parseFloat(o.total_tax||0).toFixed(2)} ${o.currency}</span>
+          ${refunds.length ? `
+          <span style="color:var(--danger)">Rambursari</span>
+          <span style="text-align:right;font-weight:500;color:var(--danger)">-${parseFloat(o.refunds.reduce((s,r) => s + Math.abs(parseFloat(r.total||0)), 0)).toFixed(2)} ${o.currency}</span>` : ''}
+          <span style="font-weight:700;font-size:15px;padding-top:10px;border-top:1px solid var(--border)">TOTAL</span>
+          <span style="text-align:right;font-weight:800;font-size:18px;color:var(--accent);padding-top:10px;border-top:1px solid var(--border)">${parseFloat(o.total).toFixed(2)} ${o.currency}</span>
+        </div>
       </div>
     </div>
-    <div class="detail-section">
-      <h4>Adresa livrare</h4>
-      <div style="font-size:13px;color:var(--muted);line-height:1.8">${shippingAddr||'—'}</div>
+
+    <!-- PRODUSE -->
+    <div class="modal-tab-panel" id="otab-products">
+      <div class="detail-section">
+        <h4>Produse comandate (${o.line_items.length})</h4>
+        <div class="order-items-list">
+          ${o.line_items.map(item => {
+            const meta = (item.meta_data||[]).filter(m => !m.key.startsWith('_') && m.display_value);
+            return `
+            <div class="order-item-row" style="align-items:flex-start;gap:10px">
+              <div class="order-item-name" style="flex:1">
+                <strong>${escHtml(item.name)}</strong>
+                ${item.sku ? `<div style="font-size:11px;color:var(--muted)">SKU: ${escHtml(item.sku)}</div>` : ''}
+                ${item.variation_id ? `<div style="font-size:11px;color:var(--muted)">Variatie #${item.variation_id}</div>` : ''}
+                ${meta.map(m => `<div style="font-size:11px;color:var(--muted)">${escHtml(m.display_key)}: <strong>${escHtml(String(m.display_value))}</strong></div>`).join('')}
+              </div>
+              <div style="text-align:right;white-space:nowrap">
+                <div class="order-item-qty">&times; ${item.quantity}</div>
+                <div class="order-item-price">${parseFloat(item.total).toFixed(2)} ${o.currency}</div>
+                ${parseFloat(item.total_tax||0) > 0 ? `<div style="font-size:11px;color:var(--muted)">TVA: ${parseFloat(item.total_tax).toFixed(2)}</div>` : ''}
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+      ${coupons.length ? `
+      <div class="detail-section">
+        <h4>Cupoane aplicate</h4>
+        ${coupons.map(c => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--bg);border-radius:8px;margin-bottom:6px;font-size:13px">
+          <span style="font-family:monospace;font-weight:600;color:var(--accent)">${escHtml(c.code)}</span>
+          <span style="color:var(--success)">-${parseFloat(c.discount).toFixed(2)} ${o.currency}</span>
+        </div>`).join('')}
+      </div>` : ''}
+      ${refunds.length ? `
+      <div class="detail-section">
+        <h4>Rambursari</h4>
+        ${refunds.map(r => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--bg);border-radius:8px;margin-bottom:6px;font-size:13px">
+          <span style="color:var(--muted)">${fmtDate(r.date_created)} ${r.reason ? '— ' + escHtml(r.reason) : ''}</span>
+          <span style="color:var(--danger);font-weight:600">-${Math.abs(parseFloat(r.total||0)).toFixed(2)} ${o.currency}</span>
+        </div>`).join('')}
+      </div>` : ''}
     </div>
-    <div class="detail-section">
-      <h4>Produse (${o.line_items.length})</h4>
-      <div class="order-items-list">
-        ${o.line_items.map(item => `
-          <div class="order-item-row">
-            <div class="order-item-name">
-              <strong>${escHtml(item.name)}</strong>
-              ${item.sku ? `<div style="font-size:11px;color:var(--muted)">SKU: ${escHtml(item.sku)}</div>` : ''}
-            </div>
-            <div class="order-item-qty">&times; ${item.quantity}</div>
-            <div class="order-item-price">${parseFloat(item.total).toFixed(2)} ${o.currency}</div>
-          </div>`).join('')}
+
+    <!-- ADRESE -->
+    <div class="modal-tab-panel" id="otab-addrs">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div class="detail-section" style="margin-bottom:0">
+          <h4>Adresa facturare</h4>
+          <div style="font-size:13px;color:var(--muted);line-height:1.9">${fmtAddr(o.billing)}</div>
+          ${o.billing.email ? `<div style="margin-top:8px"><a href="mailto:${escHtml(o.billing.email)}" style="font-size:12px;color:var(--accent2)">${escHtml(o.billing.email)}</a></div>` : ''}
+          ${o.billing.phone ? `<div><a href="tel:${escHtml(o.billing.phone)}" style="font-size:12px;color:var(--accent2)">${escHtml(o.billing.phone)}</a></div>` : ''}
+        </div>
+        <div class="detail-section" style="margin-bottom:0">
+          <h4>Adresa livrare</h4>
+          <div style="font-size:13px;color:var(--muted);line-height:1.9">${fmtAddr(o.shipping) || '<span style="color:var(--muted);font-style:italic">Identica cu facturarea</span>'}</div>
+        </div>
       </div>
     </div>
-    <div class="detail-section">
-      <h4>Sumar financiar</h4>
-      <div style="display:grid;grid-template-columns:1fr auto;gap:6px 20px;font-size:13px">
-        <span style="color:var(--muted)">Subtotal produse</span>
-        <span style="text-align:right;font-weight:500">${parseFloat(o.subtotal||0).toFixed(2)} ${o.currency}</span>
-        <span style="color:var(--muted)">Transport (${shippingMethod})</span>
-        <span style="text-align:right;font-weight:500">${parseFloat(o.shipping_total||0).toFixed(2)} ${o.currency}</span>
-        ${parseFloat(o.discount_total||0)>0 ? `
-        <span style="color:var(--success)">Discount</span>
-        <span style="text-align:right;font-weight:500;color:var(--success)">-${parseFloat(o.discount_total).toFixed(2)} ${o.currency}</span>` : ''}
-        <span style="color:var(--muted)">TVA</span>
-        <span style="text-align:right;font-weight:500">${parseFloat(o.total_tax||0).toFixed(2)} ${o.currency}</span>
-        <span style="font-weight:700;font-size:15px;padding-top:10px;border-top:1px solid var(--border)">TOTAL</span>
-        <span style="text-align:right;font-weight:800;font-size:18px;color:var(--accent);padding-top:10px;border-top:1px solid var(--border)">${parseFloat(o.total).toFixed(2)} ${o.currency}</span>
+
+    <!-- NOTE -->
+    <div class="modal-tab-panel" id="otab-notes">
+      ${o.customer_note ? `
+      <div class="detail-section">
+        <h4>Nota clientului</h4>
+        <div style="font-size:13px;padding:12px;background:var(--bg);border-radius:10px;line-height:1.6;color:var(--text)">${escHtml(o.customer_note)}</div>
+      </div>` : ''}
+      <div class="detail-section">
+        <h4>Adauga nota interna</h4>
+        <textarea class="form-textarea" id="newOrderNote" placeholder="Nota interna (vizibila doar in admin)..." style="min-height:80px"></textarea>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button class="save-btn" onclick="addOrderNote(${o.id}, false)">Salveaza nota interna</button>
+          <button class="topbar-btn" onclick="addOrderNote(${o.id}, true)">Trimite la client</button>
+        </div>
+      </div>
+      <div id="orderNotesList">
+        <div style="text-align:center;padding:20px;color:var(--muted);font-size:13px">
+          <div class="spinner" style="margin:0 auto 8px"></div>Se incarca notele...
+        </div>
       </div>
     </div>
-    ${o.customer_note ? `
-    <div class="detail-section">
-      <h4>Nota client</h4>
-      <div style="font-size:13px;color:var(--muted);padding:12px;background:var(--surface2);border-radius:var(--radius-sm);line-height:1.6">${escHtml(o.customer_note)}</div>
-    </div>` : ''}`;
+
+    <!-- EXPEDITIE -->
+    <div class="modal-tab-panel" id="otab-shipping">
+      <div class="detail-section">
+        <h4>Metoda de livrare</h4>
+        <div class="detail-grid">
+          ${shippingLine ? `
+          <div class="detail-item"><label>Metoda</label><span>${escHtml(shippingLine.method_title)}</span></div>
+          <div class="detail-item"><label>Cost</label><span>${parseFloat(shippingLine.total).toFixed(2)} ${o.currency}</span></div>
+          ${shippingLine.method_id ? `<div class="detail-item"><label>ID metoda</label><span style="font-size:12px;font-family:monospace">${escHtml(shippingLine.method_id)}</span></div>` : ''}
+          ` : '<div style="color:var(--muted);font-size:13px">Nicio metoda de livrare.</div>'}
+        </div>
+      </div>
+      ${awbMeta.length ? `
+      <div class="detail-section">
+        <h4>AWB / Tracking</h4>
+        ${awbMeta.map(m => `
+        <div style="display:flex;justify-content:space-between;padding:8px 10px;background:var(--bg);border-radius:8px;margin-bottom:6px;font-size:13px">
+          <span style="color:var(--muted)">${escHtml(m.key)}</span>
+          <span style="font-family:monospace;font-weight:600;color:var(--accent2)">${escHtml(String(m.value))}</span>
+        </div>`).join('')}
+      </div>` : `
+      <div class="detail-section">
+        <h4>AWB / Curier</h4>
+        <div style="font-size:13px;color:var(--muted);padding:12px;background:var(--bg);border-radius:10px;line-height:1.7">
+          Niciun AWB gasit pe aceasta comanda. Daca folosesti pluginul Colete Online sau similar, AWB-ul generat din WordPress admin va aparea automat aici (ca meta-data pe comanda).
+        </div>
+      </div>`}
+      ${usefulMeta.length ? `
+      <div class="detail-section">
+        <h4>Date suplimentare comanda</h4>
+        ${usefulMeta.map(m => `
+        <div style="display:flex;gap:12px;padding:7px 10px;background:var(--bg);border-radius:8px;margin-bottom:5px;font-size:12px">
+          <span style="color:var(--muted);min-width:120px;word-break:break-all">${escHtml(m.key)}</span>
+          <span style="color:var(--text);word-break:break-all;flex:1">${escHtml(String(m.value))}</span>
+        </div>`).join('')}
+      </div>` : ''}
+    </div>
+  `;
 
   document.getElementById('orderModal').classList.add('open');
+  // Incarca notele async dupa ce modalul e deschis
+  loadOrderNotes(o.id);
+}
+
+async function loadOrderNotes(orderId) {
+  const el = document.getElementById('orderNotesList');
+  if (!el) return;
+  try {
+    const notes = await wcFetch(`/orders/${orderId}/notes?per_page=50`);
+    if (!notes.length) {
+      el.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0">Nicio nota interna.</div>';
+      return;
+    }
+    el.innerHTML = `<div class="detail-section"><h4>Note existente</h4>${notes.map(n => `
+      <div style="padding:10px 12px;background:var(--bg);border-radius:10px;margin-bottom:8px;font-size:13px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+          <span style="font-weight:600;color:${n.customer_note ? 'var(--accent2)' : 'var(--muted)'}">${n.customer_note ? 'Nota client' : 'Nota interna'}</span>
+          <span style="color:var(--muted);font-size:11px">${fmtDate(n.date_created)}</span>
+        </div>
+        <div style="line-height:1.6;color:var(--text)">${escHtml(n.note)}</div>
+      </div>`).join('')}
+    </div>`;
+  } catch(_) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px 0">Notele nu s-au putut incarca.</div>';
+  }
+}
+
+async function addOrderNote(orderId, customerNote) {
+  const ta = document.getElementById('newOrderNote');
+  const note = ta?.value.trim();
+  if (!note) return;
+  try {
+    await wcFetch(`/orders/${orderId}/notes`, {
+      method: 'POST',
+      body: JSON.stringify({ note, customer_note: customerNote }),
+    });
+    ta.value = '';
+    showToast('Nota adaugata', customerNote ? 'Nota trimisa la client' : 'Nota interna salvata', 'success');
+    await loadOrderNotes(orderId);
+  } catch(e) {
+    showToast('Eroare', e.message, 'error');
+  }
 }
 
 function closeOrderModal() {
